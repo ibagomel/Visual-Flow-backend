@@ -1,0 +1,4 @@
+*
+!target/vf-api.jar
+!generate_keystore_p12.sh
+!Dockerfile
