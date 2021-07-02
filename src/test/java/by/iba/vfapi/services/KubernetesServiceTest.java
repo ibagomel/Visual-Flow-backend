@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) 2021 IBA Group, a.s. All rights reserved.
+ *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -218,7 +220,7 @@ class KubernetesServiceTest {
             .once();
         server
             .expect()
-            .get()
+            .patch()
             .withPath("/api/v1/namespaces/namespace")
             .andReturn(HttpURLConnection.HTTP_OK, null)
             .once();

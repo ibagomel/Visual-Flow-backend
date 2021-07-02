@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) 2021 IBA Group, a.s. All rights reserved.
+ *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -19,6 +21,9 @@ package by.iba.vfapi.model.argo;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -35,8 +40,22 @@ import lombok.Setter;
 public class WorkflowSpec implements Serializable {
     private static final long serialVersionUID = 1;
 
-    private Arguments arguments;
     private WorkflowTemplateRef workflowTemplateRef;
+    private String entrypoint;
+    private List<ImagePullSecret> imagePullSecrets;
+    private List<Template> templates;
+    private String serviceAccountName;
+
+    /**
+     * Setter for serviceAccountName.
+     *
+     * @param serviceAccountName serviceAccountName object
+     * @return this
+     */
+    public WorkflowSpec serviceAccountName(String serviceAccountName) {
+        this.serviceAccountName = serviceAccountName;
+        return this;
+    }
 
     /**
      * Setter for workflowTemplateRef.
@@ -46,6 +65,43 @@ public class WorkflowSpec implements Serializable {
      */
     public WorkflowSpec workflowTemplateRef(WorkflowTemplateRef workflowTemplateRef) {
         this.workflowTemplateRef = workflowTemplateRef;
+        return this;
+    }
+
+    /**
+     * Setter for entrypoint.
+     *
+     * @param entrypoint entrypoint
+     * @return this
+     */
+    public WorkflowSpec entrypoint(String entrypoint) {
+        this.entrypoint = entrypoint;
+        return this;
+    }
+
+    /**
+     * Setter for templates.
+     *
+     * @param templates list of Template
+     * @return this
+     */
+    public WorkflowSpec templates(Collection<Template> templates) {
+        if (templates != null) {
+            this.templates = new ArrayList<>(templates);
+        }
+        return this;
+    }
+
+    /**
+     * Setter for imagePullSecrets.
+     *
+     * @param imagePullSecrets list of ImagePullSecret
+     * @return this
+     */
+    public WorkflowSpec imagePullSecrets(Collection<ImagePullSecret> imagePullSecrets) {
+        if (imagePullSecrets != null) {
+            this.imagePullSecrets = new ArrayList<>(imagePullSecrets);
+        }
         return this;
     }
 }

@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) 2021 IBA Group, a.s. All rights reserved.
+ *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -43,6 +45,9 @@ import io.argoproj.workflow.ApiException;
 import io.argoproj.workflow.apis.WorkflowServiceApi;
 import io.argoproj.workflow.models.WorkflowRetryRequest;
 import io.argoproj.workflow.models.WorkflowTerminateRequest;
+import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.argoproj.workflow.models.WorkflowResumeRequest;
+import io.argoproj.workflow.models.WorkflowStopRequest;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.client.ResourceNotFoundException;
 import java.io.IOException;
@@ -79,21 +84,26 @@ class PipelineServiceTest {
                                                     "  \"graph\": [\n" +
                                                     "    {\n" +
                                                     "      \"value\": {\n" +
-                                                    "        \"jobId\": \"cm1\"\n" +
+                                                    "        \"jobId\": \"cm1\",\n" +
+                                                    "        \"name\": \"testJob\",\n" +
+                                                    "        \"operation\": \"JOB\"\n" +
                                                     "      },\n" +
                                                     "      \"id\": \"jRjFu5yR\",\n" +
                                                     "      \"vertex\": true\n" +
                                                     "    },\n" +
                                                     "    {\n" +
                                                     "      \"value\": {\n" +
-                                                    "        \"jobId\": \"cm2\"\n" +
+                                                    "        \"jobId\": \"cm2\",\n" +
+                                                    "        \"name\": \"testJob2\",\n" +
+                                                    "        \"operation\": \"JOB\"\n" +
                                                     "      },\n" +
                                                     "      \"id\": \"cyVyU8Xfw\",\n" +
                                                     "      \"vertex\": true\n" +
                                                     "    },\n" +
                                                     "    {\n" +
                                                     "      \"value\": {\n" +
-                                                    "        \"successPath\": true\n" +
+                                                    "        \"successPath\": true,\n" +
+                                                    "        \"operation\": \"EDGE\"\n" +
                                                     "      },\n" +
                                                     "      \"source\": \"jRjFu5yR\",\n" +
                                                     "      \"target\": \"cyVyU8Xfw\"\n" +
@@ -124,11 +134,12 @@ class PipelineServiceTest {
 
     @Test
     void testCreate() {
-        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"),
-                                                       anyString())).thenThrow(new ResourceNotFoundException(""));
+        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"), anyString()))
+            .thenThrow(new ResourceNotFoundException(""));
         doNothing()
             .when(argoKubernetesService)
             .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
+        when(argoKubernetesService.getConfigMap(anyString(), anyString())).thenReturn(new ConfigMap());
 
         pipelineService.create("projectId", "name", GRAPH);
 
@@ -137,17 +148,15 @@ class PipelineServiceTest {
 
     @Test
     void testCreateNotUniqueName() {
-        when(argoKubernetesService.getWorkflowTemplatesByLabels("projectId",
-                                                                Map.of(Constants.NAME,
-                                                                       "name"))).thenReturn(List.of(new WorkflowTemplate(),
-                                                                                                    new WorkflowTemplate()));
+        when(argoKubernetesService.getWorkflowTemplatesByLabels("projectId", Map.of(Constants.NAME, "name")))
+            .thenReturn(List.of(new WorkflowTemplate(), new WorkflowTemplate()));
         assertThrows(BadRequestException.class,
                      () -> pipelineService.create("projectId", "name", GRAPH),
                      "Expected exception must be thrown");
 
 
-        verify(argoKubernetesService, never()).createOrReplaceWorkflowTemplate(anyString(),
-                                                                               any(WorkflowTemplate.class));
+        verify(argoKubernetesService, never())
+            .createOrReplaceWorkflowTemplate(anyString(), any(WorkflowTemplate.class));
     }
 
     @Test
@@ -171,10 +180,8 @@ class PipelineServiceTest {
                                                 "workflowtemplates",
                                                 "argoproj.io",
                                                 Constants.UPDATE_ACTION)).thenReturn(true);
-        when(argoKubernetesService.isAccessible("projectId",
-                                                "workflows",
-                                                "argoproj.io",
-                                                Constants.CREATE_ACTION)).thenReturn(true);
+        when(argoKubernetesService.isAccessible("projectId", "workflows", "argoproj.io", Constants.CREATE_ACTION))
+            .thenReturn(true);
 
         PipelineResponseDto expected = ((PipelineResponseDto) new PipelineResponseDto()
             .id("id")
@@ -183,7 +190,7 @@ class PipelineServiceTest {
             .status("Draft")
             .runnable(true)).definition(new ObjectMapper().readTree(GRAPH.toString().getBytes())).editable(true);
 
-        assertEquals(expected, pipelineService.getById("projectId", "id"), "Pipeline must be equals to expected");
+        assertEquals(expected.getDefinition().toString(), pipelineService.getById("projectId", "id").getDefinition().toString(), "Pipeline must be equals to expected");
     }
 
     @Test
@@ -262,10 +269,8 @@ class PipelineServiceTest {
                                                 "workflowtemplates",
                                                 "argoproj.io",
                                                 Constants.UPDATE_ACTION)).thenReturn(true);
-        when(argoKubernetesService.isAccessible("projectId",
-                                                "workflows",
-                                                "argoproj.io",
-                                                Constants.CREATE_ACTION)).thenReturn(true);
+        when(argoKubernetesService.isAccessible("projectId", "workflows", "argoproj.io", Constants.CREATE_ACTION))
+            .thenReturn(true);
 
         PipelineOverviewListDto pipelines = pipelineService.getAll("projectId");
 
@@ -363,10 +368,8 @@ class PipelineServiceTest {
                                                 "workflowtemplates",
                                                 "argoproj.io",
                                                 Constants.UPDATE_ACTION)).thenReturn(true);
-        when(argoKubernetesService.isAccessible("projectId",
-                                                "workflows",
-                                                "argoproj.io",
-                                                Constants.CREATE_ACTION)).thenReturn(true);
+        when(argoKubernetesService.isAccessible("projectId", "workflows", "argoproj.io", Constants.CREATE_ACTION))
+            .thenReturn(true);
         PipelineOverviewListDto pipelines = pipelineService.getAll("projectId");
 
         PipelineOverviewDto expected = new PipelineOverviewDto()
@@ -408,10 +411,8 @@ class PipelineServiceTest {
                                                 "workflowtemplates",
                                                 "argoproj.io",
                                                 Constants.UPDATE_ACTION)).thenReturn(true);
-        when(argoKubernetesService.isAccessible("projectId",
-                                                "workflows",
-                                                "argoproj.io",
-                                                Constants.CREATE_ACTION)).thenReturn(true);
+        when(argoKubernetesService.isAccessible("projectId", "workflows", "argoproj.io", Constants.CREATE_ACTION))
+            .thenReturn(true);
 
         PipelineOverviewListDto pipelines = pipelineService.getAll("projectId");
 
@@ -451,10 +452,8 @@ class PipelineServiceTest {
                                                 "workflowtemplates",
                                                 "argoproj.io",
                                                 Constants.UPDATE_ACTION)).thenReturn(true);
-        when(argoKubernetesService.isAccessible("projectId",
-                                                "workflows",
-                                                "argoproj.io",
-                                                Constants.CREATE_ACTION)).thenReturn(true);
+        when(argoKubernetesService.isAccessible("projectId", "workflows", "argoproj.io", Constants.CREATE_ACTION))
+            .thenReturn(true);
 
         PipelineOverviewListDto pipelines = pipelineService.getAll("projectId");
 
@@ -475,6 +474,7 @@ class PipelineServiceTest {
         doNothing()
             .when(argoKubernetesService)
             .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
+        when(argoKubernetesService.getConfigMap(anyString(), anyString())).thenReturn(new ConfigMap());
 
         pipelineService.update("projectId", "id", GRAPH, "newName");
 
@@ -512,30 +512,99 @@ class PipelineServiceTest {
     }
 
     @Test
-    void testStop() throws ApiException {
-        when(apiInstance.workflowServiceTerminateWorkflow(eq("projectId"), eq("id"), any(WorkflowTerminateRequest.class))).thenReturn(null);
-        pipelineService.stop("projectId", "id");
-        verify(apiInstance).workflowServiceTerminateWorkflow(anyString(), anyString(), any(WorkflowTerminateRequest.class));
+    void testStop()  {
+        doNothing().when(argoKubernetesService).deleteWorkflow(anyString(), anyString());
+        WorkflowTemplate workflowTemplate = new WorkflowTemplate();
+        workflowTemplate.setMetadata(new ObjectMetaBuilder()
+                                         .withName("id")
+                                         .addToLabels(Constants.NAME, "name")
+                                         .addToAnnotations(Constants.DEFINITION,
+                                                           Base64.encodeBase64String(GRAPH.toString().getBytes()))
+                                         .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
+                                         .build());
+        workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
+                                                                                  .name("dagTemplate")
+                                                                                  .dag(new DagTemplate().addTasksItem(
+                                                                                      new DagTask())))));
+        Workflow workflow = new Workflow();
+        WorkflowStatus status = new WorkflowStatus();
+        status.setFinishedAt(DateTime.parse("2020-10-27T10:14:46Z"));
+        status.setStartedAt(DateTime.parse("2020-10-27T10:14:46Z"));
+        status.setPhase("Running");
+        NodeStatus nodeStatus1 = new NodeStatus();
+        nodeStatus1.setDisplayName("pipeline");
+        nodeStatus1.setPhase("Running");
+        nodeStatus1.setFinishedAt(DateTime.parse("2021-10-28T07:37:46Z"));
+        nodeStatus1.setTemplateName("sparkTemplate");
+        nodeStatus1.setType(NODE_TYPE_POD);
+        NodeStatus nodeStatus2 = new NodeStatus();
+        nodeStatus2.setDisplayName("pipeline-2681521834");
+        nodeStatus2.setPhase("Pending");
+        nodeStatus2.setFinishedAt(DateTime.parse("2021-10-28T07:37:46Z"));
+        nodeStatus2.setTemplateName("notificationTemplate");
+        nodeStatus2.setType(NODE_TYPE_POD);
+        status.setNodes(List
+                            .of(nodeStatus1, nodeStatus2)
+                            .stream()
+                            .collect(Collectors.toMap(NodeStatus::getDisplayName, ns -> ns)));
+        DagTemplate dagTemplate = new DagTemplate();
+        dagTemplate.setTasks(List.of(new DagTask()
+                                         .arguments(new Arguments().addParametersItem(new Parameter()
+                                                                                          .name("graphId")
+                                                                                          .value("1")))
+                                         .name("pipeline")
+                                         .template("sparkTemplate"),
+                                     new DagTask()
+                                         .arguments(new Arguments().addParametersItem(new Parameter()
+                                                                                          .name("graphId")
+                                                                                          .value("2")))
+                                         .name("pipeline-2681521834")
+                                         .template("notificationTemplate")));
+        status.setStoredTemplates(Map.of("dagTemplate",
+                                         new Template()
+                                             .name(Constants.DAG_TEMPLATE_NAME)
+                                             .dag(dagTemplate)
+                                             .name("dagTemplate"),
+                                         "notificationTemplate",
+                                         new Template().name(PipelineService.NOTIFICATION_TEMPLATE_NAME),
+                                         "sparkTemplate",
+                                         new Template().name(PipelineService.SPARK_TEMPLATE_NAME)));
+        workflow.setStatus(status);
+        when(argoKubernetesService.getWorkflowTemplate(anyString(), anyString())).thenReturn(workflowTemplate);
+        when(argoKubernetesService.getWorkflow(anyString(), anyString())).thenReturn(workflow);
+        pipelineService.stop(anyString(), anyString());
+        verify(argoKubernetesService).deleteWorkflow(anyString(), anyString());
     }
 
     @Test
-    void testStopFailure() throws ApiException {
-        when(apiInstance.workflowServiceTerminateWorkflow(eq("projectId"), eq("id"), any(WorkflowTerminateRequest.class))).thenThrow(
-            ApiException.class);
-
-        assertThrows(ArgoClientException.class,
-                     () -> pipelineService.stop("projectId", "id"),
+    void testStopFailure() throws ResourceNotFoundException {
+        when(argoKubernetesService.getWorkflow(anyString(), anyString())).thenThrow(ResourceNotFoundException.class);
+        assertThrows(ResourceNotFoundException.class,
+                     () -> pipelineService.stop(anyString(), anyString()),
                      "Expected exception must be thrown");
-
-        verify(apiInstance).workflowServiceTerminateWorkflow(anyString(), anyString(), any(WorkflowTerminateRequest.class));
+        verify(argoKubernetesService).getWorkflow(anyString(), anyString());
     }
 
     @Test
-    void testResume() throws ApiException {
-        when(apiInstance.workflowServiceRetryWorkflow(eq("projectId"), eq("id"), any(WorkflowRetryRequest.class))).thenReturn(
-            null);
+    void testResume() {
+        doNothing().when(argoKubernetesService).createOrReplaceWorkflow(eq("projectId"), any(Workflow.class));
+        doNothing().when(argoKubernetesService).createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
+
+        WorkflowTemplate workflowTemplate = new WorkflowTemplate();
+        workflowTemplate.setMetadata(new ObjectMetaBuilder()
+                                         .withName("id")
+                                         .addToLabels(Constants.NAME, "name")
+                                         .addToAnnotations(Constants.DEFINITION,
+                                                           Base64.encodeBase64String(GRAPH.toString().getBytes()))
+                                         .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
+                                         .addToAnnotations(Constants.STOPPED_AT, "stoppedHere")
+                                         .build());
+        workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
+                                                                                  .name(Constants.DAG_TEMPLATE_NAME)
+                                                                                  .dag(new DagTemplate()))));
+        when(argoKubernetesService.getWorkflowTemplate(anyString(), anyString())).thenReturn(workflowTemplate);
         pipelineService.resume("projectId", "id");
-        verify(apiInstance).workflowServiceRetryWorkflow(anyString(), anyString(), any(WorkflowRetryRequest.class));
+        verify(argoKubernetesService).createOrReplaceWorkflow(eq("projectId"), any(Workflow.class));
     }
 
     @Test
@@ -566,4 +635,3 @@ class PipelineServiceTest {
                      "Schedule must be equals to expected");
     }
 }
-

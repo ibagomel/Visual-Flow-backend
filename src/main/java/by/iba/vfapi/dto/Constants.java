@@ -17,6 +17,7 @@
 
 package by.iba.vfapi.dto;
 
+import by.iba.vfapi.services.PipelineService;
 import java.time.format.DateTimeFormatter;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -69,5 +70,25 @@ public final class Constants {
     public static final String UPDATE_ACTION = "update";
     public static final String CREATE_ACTION = "create";
 
+    public static final String EDGE_SUCCESS_PATH = "successPath";
+    public static final String EDGE_SUCCESS_PATH_POSITIVE = "true";
+    public static final String EDGE_SUCCESS_PATH_NEGATIVE = "false";
+
     public static final String NODE_TYPE_POD = "Pod";
+
+    public static final String STOPPED_AT = "STOPPED_AT";
+    public static final String STARTED_AT = "STARTED_AT";
+    public static final String FINISHED_AT = "FINISHED_AT";
+    public static final String STATUS = "STATUS";
+    public static final String PROGRESS = "PROGRESS";
+    public static final String ANNOTATION_JOB_STATUSES = "AnnotationForJobStatuses";
+    public static final String NODE_OPERATION = "operation";
+    public static final String NODE_OPERATION_EDGE = "EDGE";
+    public static final String NODE_OPERATION_JOB = "JOB";
+    public static final String NODE_OPERATION_NOTIFICATION = "NOTIFICATION";
+    public static final String NODE_JOB_NAME = "name";
+    public static final String NODE_JOB_ID = "jobId";
+    public static final String NODE_NOTIFICATION_RECIPIENTS = "addressees";
+    public static final String NODE_NOTIFICATION_MESSAGE = "message";
+    public static final String NODE_NOTIFICATION_NAME = "name";
 }

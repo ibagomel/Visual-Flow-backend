@@ -1,4 +1,6 @@
 #
+# Copyright (c) 2021 IBA Group, a.s. All rights reserved.
+#
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -14,27 +16,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM openjdk:11
+FROM public.ecr.aws/lambda/java:11
 
-ARG uid=1001
-ARG gid=1002
-ARG group=vf-group
-ARG username=vf-user
+RUN yum update -y && yum install -y openssl && yum clean all && rm -rf /var/cache/yum
 
-RUN apt-get -y update \
-    && apt-get -y upgrade \
-    && apt-get -y autoremove
+COPY ./target/vf-api.jar generate_keystore_p12.sh /app/
 
-RUN groupadd -g ${gid} ${group} \
-    && useradd -u ${uid} -g ${gid} -m ${username}
+WORKDIR /app/
 
-RUN chown -R ${username}:${group} "$JAVA_HOME" \
-    && chmod 644 "$JAVA_HOME/lib/security/cacerts"
-
-USER ${username}
-WORKDIR /home/${username}
-
-COPY ./target/vf-api.jar ./
-COPY generate_keystore_p12.sh ./
-
-CMD ["/bin/sh", "-c", "sh ./generate_keystore_p12.sh; java -Xms1g -Xmx8g -jar vf-api.jar --spring.config.location=file:/config/application.yaml"]
+ENTRYPOINT ["/bin/sh", "-c", "sh ./generate_keystore_p12.sh; java -Xms1g -Xmx8g -jar vf-api.jar --spring.config.location=file:/config/application.yaml"]

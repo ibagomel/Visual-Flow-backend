@@ -1,4 +1,6 @@
 <!--
+  ~ Copyright (c) 2021 IBA Group, a.s. All rights reserved.
+  ~
   ~ Licensed to the Apache Software Foundation (ASF) under one or more
   ~ contributor license agreements.  See the NOTICE file distributed with
   ~ this work for additional information regarding copyright ownership.
@@ -40,6 +42,26 @@
           <snapshots><enabled>true</enabled></snapshots>
         </repository>
       </repositories>
+    </profile>
+    <profile>
+      <id>sonar</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.projectKey>vf:backend</sonar.projectKey>
+        <sonar.organization>ibagomel</sonar.organization>
+        <sonar.login>${env.SONAR_TOKEN}</sonar.login>
+        <sonar.coverage.exclusions>**/config/**/*,**/dto/**/*,**/model/**/*,**/VfApiApplication*</sonar.coverage.exclusions>
+        <sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.junit.reportPaths>target/surefire-reports</sonar.junit.reportPaths>
+        <sonar.dependencyCheck.reportPath>dependency-check-report.xml</sonar.dependencyCheck.reportPath>
+        <sonar.dependencyCheck.htmlReportPath>dependency-check-report.html</sonar.dependencyCheck.htmlReportPath>
+        <sonar.qualitygate.wait>true</sonar.qualitygate.wait>
+        <sonar.projectVersion>${maven.build.timestamp}</sonar.projectVersion>
+        <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>
+      </properties>
     </profile>
   </profiles>
 

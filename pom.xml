@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
+  ~ Copyright (c) 2021 IBA Group, a.s. All rights reserved.
+  ~
   ~ Licensed to the Apache Software Foundation (ASF) under one or more
   ~ contributor license agreements.  See the NOTICE file distributed with
   ~ this work for additional information regarding copyright ownership.
@@ -33,7 +35,7 @@
 
     <properties>
         <java.version>11</java.version>
-        <kubernetes.client.version>5.3.0</kubernetes.client.version>
+        <kubernetes.client.version>5.4.1</kubernetes.client.version>
         <bouncycastle.version>1.68</bouncycastle.version>
     </properties>
 
@@ -145,6 +147,11 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>3.9.0.2155</version>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>3.0.0</version>
@@ -200,12 +207,16 @@
             <plugin>
                 <groupId>org.owasp</groupId>
                 <artifactId>dependency-check-maven</artifactId>
-                <version>6.1.5</version>
+                <version>6.2.2</version>
                 <configuration>
                     <failBuildOnCVSS>8</failBuildOnCVSS>
                     <suppressionFiles>
                         <suppressionFile>owasp-dependency-check-suppressions.xml</suppressionFile>
                     </suppressionFiles>
+                    <assemblyAnalyzerEnabled>false</assemblyAnalyzerEnabled>
+                    <retireJsAnalyzerEnabled>false</retireJsAnalyzerEnabled>
+                    <dataDirectory>dependency-check/data</dataDirectory>
+                    <autoUpdate>true</autoUpdate>
                 </configuration>
                 <executions>
                     <execution>
