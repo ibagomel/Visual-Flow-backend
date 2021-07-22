@@ -45,6 +45,8 @@ public class WorkflowSpec implements Serializable {
     private List<ImagePullSecret> imagePullSecrets;
     private List<Template> templates;
     private String serviceAccountName;
+    private boolean suspend;
+    private String shutdown;
 
     /**
      * Setter for serviceAccountName.

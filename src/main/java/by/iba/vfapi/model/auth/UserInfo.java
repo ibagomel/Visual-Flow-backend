@@ -19,6 +19,7 @@
 
 package by.iba.vfapi.model.auth;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -34,11 +35,17 @@ import org.apache.commons.lang3.ObjectUtils;
 @Setter
 @EqualsAndHashCode
 @AllArgsConstructor
+@Schema(description = "Describes application user")
 public final class UserInfo {
+    @Schema(description = "User id. The format is decided by OAuth server", example = "1")
     private String id;
+    @Schema(description = "User's full name", example = "John Doe")
     private String name;
+    @Schema(description = "User's nickname", example = "j0hn-d0e")
     private String username;
+    @Schema(description = "User's email address", example = "john.doe@example.com")
     private String email;
+    @Schema(description = "Whether superuser permission has been granted")
     private boolean superuser;
 
     /**

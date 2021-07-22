@@ -133,7 +133,7 @@ class JobControllerTest {
     void testDelete() {
         doNothing().when(jobService).delete("project1", "jobId");
 
-        ResponseEntity<String> response = controller.delete("project1", "jobId");
+        ResponseEntity<Void> response = controller.delete("project1", "jobId");
 
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "Status must be 204");
 

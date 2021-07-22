@@ -33,10 +33,12 @@ import java.util.Comparator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import org.apache.commons.lang3.RandomStringUtils;
 
 /**
  * Util class for Kubernetes service.
@@ -49,7 +51,17 @@ public class K8sUtils {
     static final String APPLICATION_ROLE = "vf-role";
     static final Pattern LOG_PATTERN =
         Pattern.compile("^(\\d{4}-\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2},\\d{3})\\s(?:\\[.+?\\s){2}(\\w+)\\s+(.+)$");
-    static final String DRAFT_STATUS = "Draft";
+    public static final String DRAFT_STATUS = "Draft";
+    public static final String SUSPENDED_STATUS = "Suspended";
+    public static final String TERMINATED_STATUS = "Terminated";
+    public static final String SUCCEEDED_STATUS = "Succeeded";
+    public static final String STOPPED_STATUS = "Stopped";
+    public static final String RUNNING_STATUS = "Running";
+    public static final String PENDING_STATUS = "Pending";
+    public static final String ERROR_STATUS = "Error";
+    public static final String FAILED_STATUS = "Failed";
+    public static final String SHUTDOWN_TERMINATE = "Terminate";
+    public static final String SHUTDOWN_STOP = "Stop";
     static final String WORKFLOW_TEMPLATE_TYPE = "workflowtemplates.argoproj.io";
     static final String WORKFLOW_TYPE = "workflows.argoproj.io";
     static final String CRON_WORKFLOW_TYPE = "cronworkflows.argoproj.io";
@@ -101,4 +113,13 @@ public class K8sUtils {
             .addToRequests(Constants.MEMORY_FIELD, Quantity.parse(params.get(Constants.DRIVER_MEMORY)))
             .build();
     }
+
+    /**
+     * Generate kubernetes compatible UUID where the first symbol is a guaranteed alphabetic character.
+     *
+     * @return UUID in string format
+     */
+     public static String getKubeCompatibleUUID() {
+        return RandomStringUtils.randomAlphabetic(1) + UUID.randomUUID().toString().substring(1);
+     }
 }

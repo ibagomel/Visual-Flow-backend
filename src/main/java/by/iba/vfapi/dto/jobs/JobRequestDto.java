@@ -19,12 +19,14 @@
 
 package by.iba.vfapi.dto.jobs;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.dto.Constants;
 import by.iba.vfapi.dto.GraphDto;
 import by.iba.vfapi.exceptions.BadRequestException;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
@@ -48,15 +50,19 @@ import org.apache.commons.codec.binary.Base64;
 @Getter
 @Setter
 @Builder
+@Schema(description = "DTO with job's information, including it's definition and graph")
 public class JobRequestDto {
     private static final int TWO = 2;
     private static final String OPERATION_FIELD = "operation";
     @NotNull
+    @Schema(description = "Job's name", example = "test_Job1")
     private String name;
     @NotNull
+    @Schema(ref = OpenApiConfig.SCHEMA_JOB_DEFINITION)
     private JsonNode definition;
     @NotNull
     @NotEmpty
+    @Schema(ref = OpenApiConfig.SCHEMA_JOB_PARAMS)
     private Map<String, String> params;
 
     /**

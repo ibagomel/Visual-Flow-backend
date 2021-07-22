@@ -19,8 +19,10 @@
 
 package by.iba.vfapi.dto.pipelines;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.dto.Constants;
 import com.fasterxml.jackson.databind.JsonNode;
+import io.swagger.v3.oas.annotations.media.Schema;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
@@ -35,10 +37,13 @@ import lombok.Setter;
 @NoArgsConstructor
 @Getter
 @Setter
+@Schema(description = "DTO with pipeline's information, including it's definition and graph")
 public class PipelineRequestDto {
     @NotNull
     @Pattern(regexp = Constants.NAME_PATTERN)
+    @Schema(description = "Name of the pipeline", example = "test_pipe321")
     private String name;
     @NotNull
+    @Schema(ref = OpenApiConfig.SCHEMA_PIPELINE_DEFINITION)
     private JsonNode definition;
 }

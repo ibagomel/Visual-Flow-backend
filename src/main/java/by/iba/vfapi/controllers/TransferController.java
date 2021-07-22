@@ -26,8 +26,8 @@ import by.iba.vfapi.dto.importing.ImportRequestDto;
 import by.iba.vfapi.dto.importing.ImportResponseDto;
 import by.iba.vfapi.exceptions.BadRequestException;
 import by.iba.vfapi.services.TransferService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.HashSet;
 import java.util.Set;
 import javax.validation.Valid;
@@ -43,7 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Transfer controller class.
  */
 
-@Api(tags = "Import/Export API")
+@Tag(name = "Import/Export/Copy API", description = "Import/Export/Copy jobs and pipelines")
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("api/project")
@@ -57,7 +57,7 @@ public class TransferController {
      * @param exportRequestDto dto with job ids and pipelines for export
      * @return object with exported jobs and pipelines
      */
-    @ApiOperation(value = "Export")
+    @Operation(summary = "Export pipelines/jobs", description = "Export existing pipelines/jobs into JSON file")
     @PostMapping("{projectId}/exportResources")
     public ExportResponseDto exporting(
         @PathVariable String projectId, @RequestBody @Valid ExportRequestDto exportRequestDto) {
@@ -71,7 +71,8 @@ public class TransferController {
      * @param importRequestDto dto with jobs ids and pipelines ids for export
      * @return object witch contains not imported ids of pipelines and jobs
      */
-    @ApiOperation(value = "Import")
+    @Operation(summary = "Import pipelines/jobs", description = "Import pipelines/jobs into a specific project " +
+        "from JSON structure")
     @PostMapping("{projectId}/importResources")
     public ImportResponseDto importing(
         @PathVariable String projectId, @RequestBody @Valid ImportRequestDto importRequestDto) {
@@ -92,6 +93,7 @@ public class TransferController {
      * @param projectId project id
      * @return pipeline flag
      */
+    @Operation(summary = "Check import access", description = "Check import access for specific project")
     @GetMapping(value = "{projectId}/checkAccess")
     public ImportAccessDto checkAccessToImport(@PathVariable String projectId) {
         return new ImportAccessDto(transferService.checkImportAccess(projectId));
@@ -101,8 +103,9 @@ public class TransferController {
      * Copies job.
      *
      * @param projectId project id
-     * @param jobId job id
+     * @param jobId     job id
      */
+    @Operation(summary = "Copy the job", description = "Make a job copy within the same project")
     @PostMapping("{projectId}/{jobId}/copyJob")
     public void copyJob(@PathVariable String projectId, @PathVariable String jobId) {
         transferService.copyJob(projectId, jobId);
@@ -111,9 +114,10 @@ public class TransferController {
     /**
      * Copies pipeline.
      *
-     * @param projectId project id
+     * @param projectId  project id
      * @param pipelineId pipelineId id
      */
+    @Operation(summary = "Copy the pipeline", description = "Make a pipeline copy within the same project")
     @PostMapping("{projectId}/{pipelineId}/copyPipeline")
     public void copyPipeline(@PathVariable String projectId, @PathVariable String pipelineId) {
         transferService.copyPipeline(projectId, pipelineId);

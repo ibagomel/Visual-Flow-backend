@@ -19,6 +19,7 @@
 
 package by.iba.vfapi.dto.jobs;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -30,8 +31,11 @@ import lombok.Getter;
 @Builder
 @EqualsAndHashCode
 @Getter
+@Schema(description = "DTO with list of jobs")
 public class JobOverviewListDto {
+    @Schema(description = "List of jobs")
     private final List<JobOverviewDto> jobs;
+    @Schema(description = "Whether current user can modify jobs")
     private final boolean editable;
 }
 

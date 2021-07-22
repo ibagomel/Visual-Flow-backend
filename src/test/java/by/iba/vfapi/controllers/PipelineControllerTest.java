@@ -60,9 +60,8 @@ class PipelineControllerTest {
     @Test
     void testCreate() throws JsonProcessingException {
 
-        when(pipelineService.create("projectId",
-                                    "name",
-                                    new ObjectMapper().readTree("{\"graph\":[]}"))).thenReturn("id");
+        when(pipelineService.create("projectId", "name", new ObjectMapper().readTree("{\"graph\":[]}")))
+            .thenReturn("id");
         JsonNode graph = new ObjectMapper().readTree("{\"graph\":[]}");
         ResponseEntity<String> response =
             pipelineController.create("projectId", new PipelineRequestDto("name", graph));
@@ -97,20 +96,19 @@ class PipelineControllerTest {
     @Test
     void testDelete() {
         doNothing().when(pipelineService).delete("projectName", "name");
-        ResponseEntity<String> response = pipelineController.delete("projectName", "name");
+        ResponseEntity<Void> response = pipelineController.delete("projectName", "name");
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "Status must be 204");
         verify(pipelineService).delete(anyString(), anyString());
     }
 
     @Test
     void testGetAll() {
-        when(pipelineService.getAll("project1")).thenReturn(PipelineOverviewListDto
-                                                                .builder()
-                                                                .pipelines(List.of(
-                                                                    new PipelineOverviewDto(),
-                                                                    new PipelineOverviewDto()))
-                                                                .editable(true)
-                                                                .build());
+        when(pipelineService.getAll("project1"))
+            .thenReturn(PipelineOverviewListDto
+                            .builder()
+                            .pipelines(List.of(new PipelineOverviewDto(), new PipelineOverviewDto()))
+                            .editable(true)
+                            .build());
 
         PipelineOverviewListDto response = pipelineController.getAll("project1");
 
@@ -148,6 +146,33 @@ class PipelineControllerTest {
     }
 
     @Test
+    void testTerminate() {
+        doNothing().when(pipelineService).terminate("projectId", "id");
+
+        pipelineController.terminate("projectId", "id");
+
+        verify(pipelineService).terminate(anyString(), anyString());
+    }
+
+    @Test
+    void testRetry() {
+        doNothing().when(pipelineService).retry("projectId", "id");
+
+        pipelineController.retry("projectId", "id");
+
+        verify(pipelineService).retry(anyString(), anyString());
+    }
+
+    @Test
+    void testSuspend() {
+        doNothing().when(pipelineService).suspend("projectId", "id");
+
+        pipelineController.suspend("projectId", "id");
+
+        verify(pipelineService).suspend(anyString(), anyString());
+    }
+
+    @Test
     void testCreateCron() {
 
         CronPipelineDto cronPipelineDto = new CronPipelineDto();
@@ -162,8 +187,8 @@ class PipelineControllerTest {
     void testDeleteCron() {
         doNothing().when(pipelineService).deleteCron("projectId", "id");
 
-        pipelineController.deleteCron("projectId", "id");
-
+        ResponseEntity<Void> response = pipelineController.deleteCron("projectId", "id");
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode(), "Status must be 204");
         verify(pipelineService).deleteCron(anyString(), anyString());
     }
 

@@ -97,6 +97,6 @@ Visual Flow comes with preconfigured Swagger.
 
 You should be able to access swagger by the following URL:
 
-https://localhost:8080/${BASE_PATH}/swagger-ui/
+https://localhost:8080/${BASE_PATH}/swagger-ui.html
 
 To be able to work with endpoints, you would have to be authenticated. Do it by providing oauth bearer token into Authorization header.

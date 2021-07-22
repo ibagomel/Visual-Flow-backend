@@ -19,7 +19,11 @@
 
 package by.iba.vfapi.dto.exporting;
 
+import by.iba.vfapi.config.OpenApiConfig;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Set;
+import java.util.UUID;
 import javax.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -34,10 +38,14 @@ import lombok.Setter;
 @NoArgsConstructor
 @Getter
 @Setter
+@Schema(description = "DTO that stores ids of the jobs and pipelines that will be exported")
 public class ExportRequestDto {
     @NotNull
+    @ArraySchema(arraySchema = @Schema(description = "Ids of the jobs that will be exported"), schema =
+    @Schema(ref = OpenApiConfig.SCHEMA_UUID_ONE))
     private Set<String> jobIds;
     @NotNull
+    @Schema(description = "list of pipeline DTOs that will be exported")
     private Set<PipelineRequest> pipelines;
 
     /**
@@ -48,8 +56,11 @@ public class ExportRequestDto {
     @NoArgsConstructor
     @Getter
     @Setter
+    @Schema(description = "DTO for pipeline that will be imported")
     public static class PipelineRequest {
+        @Schema(description = "Id of the pipeline", implementation = UUID.class)
         private String pipelineId;
+        @Schema(description = "Whether to include pipeline jobs into export")
         private boolean withRelatedJobs;
     }
 }

@@ -25,8 +25,8 @@ import by.iba.vfapi.dto.pipelines.CronPipelineDto;
 import by.iba.vfapi.dto.pipelines.PipelineOverviewDto;
 import by.iba.vfapi.dto.pipelines.PipelineOverviewListDto;
 import by.iba.vfapi.dto.pipelines.PipelineResponseDto;
-import by.iba.vfapi.model.argo.RuntimeData;
 import by.iba.vfapi.dto.projects.ParamsDto;
+import by.iba.vfapi.exceptions.ArgoClientException;
 import by.iba.vfapi.exceptions.BadRequestException;
 import by.iba.vfapi.exceptions.InternalProcessingException;
 import by.iba.vfapi.model.argo.Arguments;
@@ -43,6 +43,7 @@ import by.iba.vfapi.model.argo.ImagePullSecret;
 import by.iba.vfapi.model.argo.Inputs;
 import by.iba.vfapi.model.argo.NodeStatus;
 import by.iba.vfapi.model.argo.Parameter;
+import by.iba.vfapi.model.argo.RuntimeData;
 import by.iba.vfapi.model.argo.SecretRef;
 import by.iba.vfapi.model.argo.Template;
 import by.iba.vfapi.model.argo.TemplateMeta;
@@ -56,7 +57,13 @@ import by.iba.vfapi.model.argo.WorkflowTemplateSpec;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
+import io.argoproj.workflow.ApiException;
 import io.argoproj.workflow.apis.WorkflowServiceApi;
+import io.argoproj.workflow.models.WorkflowResumeRequest;
+import io.argoproj.workflow.models.WorkflowRetryRequest;
+import io.argoproj.workflow.models.WorkflowStopRequest;
+import io.argoproj.workflow.models.WorkflowSuspendRequest;
+import io.argoproj.workflow.models.WorkflowTerminateRequest;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
@@ -75,25 +82,18 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringEscapeUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import static by.iba.vfapi.dto.Constants.ANNOTATION_JOB_STATUSES;
-import static by.iba.vfapi.dto.Constants.FINISHED_AT;
-import static by.iba.vfapi.dto.Constants.PROGRESS;
-import static by.iba.vfapi.dto.Constants.STARTED_AT;
-import static by.iba.vfapi.dto.Constants.STATUS;
-import static by.iba.vfapi.dto.Constants.STOPPED_AT;
-import static by.iba.vfapi.services.K8sUtils.DRAFT_STATUS;
 
 /**
  * PipelineService class.
@@ -109,8 +109,6 @@ public class PipelineService {
     static final String NOTIFICATION_TEMPLATE_NAME = "notificationTemplate";
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final int DEPENDS_OPERATOR_LENGTH = 4;
-    private static final String STATUS_ERROR = "Error";
-    private static final String STATUS_FAILED = "Failed";
     private static final String GRAPH_ID = "graphId";
 
     private final String sparkImage;
@@ -224,7 +222,7 @@ public class PipelineService {
     private static void replaceIds(Iterable<GraphDto.NodeDto> nodes, Iterable<GraphDto.EdgeDto> edges) {
         for (GraphDto.NodeDto node : nodes) {
             String id = node.getId();
-            String generatedId = RandomStringUtils.randomAlphabetic(1) + UUID.randomUUID().toString().substring(1);
+            String generatedId = K8sUtils.getKubeCompatibleUUID();
             node.setId(generatedId);
             node.getValue().put(generatedId, id);
 
@@ -361,7 +359,7 @@ public class PipelineService {
         if ("&&".equals(operator)) {
             return String.format(" && %s", source);
         }
-        return String.format(" || %s.Failed || %s.Errored", source, source);
+        return String.format(" || %s.Errored", source);
     }
 
     /**
@@ -520,9 +518,7 @@ public class PipelineService {
                            .image(notificationImage)
                            .command(List.of("/bin/bash", "-c", "--"))
                            .args(List.of(String.format(
-                               "python3 /home/job-user/slack_job.py -m {{inputs.parameters.%s}} -a {{inputs" +
-                                   ".parameters" +
-                                   ".%s}}",
+                               "python3 /app/slack_job.py -m {{inputs.parameters.%s}} -a {{inputs.parameters.%s}}",
                                Constants.NODE_NOTIFICATION_MESSAGE,
                                Constants.NODE_NOTIFICATION_RECIPIENTS)))
                            .imagePullPolicy("Always")
@@ -658,29 +654,10 @@ public class PipelineService {
                 .id(id)
                 .name(metadata.getLabels().get(Constants.NAME))
                 .lastModified(annotations.get(Constants.LAST_MODIFIED))
-                .status(DRAFT_STATUS))
+                .status(K8sUtils.DRAFT_STATUS))
                 .editable(editable)
                 .definition(MAPPER.readTree(Base64.decodeBase64(annotations.get(Constants.DEFINITION))));
-
-            String value = annotations.get(STOPPED_AT);
-            if (value == null) {
-                appendRuntimeInfo(projectId, id, pipelineResponseDto);
-            } else {
-                Map<String, String> jobStatuses = new HashMap<>();
-                for (Map.Entry<String, String> entry : annotations.entrySet()) {
-                    if (entry.getKey().contains(ANNOTATION_JOB_STATUSES)) {
-                        jobStatuses.put(entry.getKey().substring(ANNOTATION_JOB_STATUSES.length()),
-                                        entry.getValue());
-                    }
-
-                }
-                pipelineResponseDto
-                    .startedAt(annotations.get(STARTED_AT))
-                    .finishedAt(annotations.get(FINISHED_AT))
-                    .status(annotations.get(STATUS))
-                    .progress(Double.parseDouble(annotations.get(PROGRESS)))
-                    .jobsStatuses(jobStatuses);
-            }
+            appendRuntimeInfo(projectId, id, pipelineResponseDto, workflowTemplate);
             boolean accessibleToRun = isArgoResourceEditable(projectId, "workflows", Constants.CREATE_ACTION);
             appendRunnable(getDagTaskFromWorkflowTemplateSpec(workflowTemplate.getSpec()),
                            pipelineResponseDto,
@@ -695,82 +672,95 @@ public class PipelineService {
     /**
      * Get runtime data.
      *
-     * @param projectId project id
-     * @param id        pipeline id
+     * @param projectId       project id
+     * @param id              pipeline id
+     * @param storedTemplates stored templates
      * @return runtime data for dto
      */
-    private RuntimeData getRunTimeData(String projectId, String id) {
+    private RuntimeData getRunTimeData(String projectId, String id, List<Template> storedTemplates) {
         RuntimeData runtimeData = new RuntimeData();
-        try {
-            Workflow workflow = argoKubernetesService.getWorkflow(projectId, id);
-            WorkflowStatus status = workflow.getStatus();
-            String currentStatus = status.getPhase();
-            if (STATUS_FAILED.equals(currentStatus)) {
-                currentStatus = STATUS_ERROR;
-            }
-
-            Map<String, String> statuses = new HashMap<>();
-            Map<String, NodeStatus> nodes = status.getNodes();
-            Collection<NodeStatus> nodeStatuses = new ArrayList<>();
-            if (nodes != null) {
-                nodeStatuses = nodes.values();
-            } else {
-                LOGGER.error(status.getMessage());
-            }
-
-            runtimeData.setStartedAt(DateTimeUtils.getFormattedDateTime(status.getStartedAt().toString()));
-            runtimeData.setFinishedAt(DateTimeUtils.getFormattedDateTime(String.valueOf(status.getFinishedAt())));
-            runtimeData.setStatus(currentStatus);
-            runtimeData.setProgress(status.getProgress());
-            runtimeData.setJobsStatuses(statuses);
-
-            for (NodeStatus nodeStatus : nodeStatuses) {
-                if (Constants.NODE_TYPE_POD.equals(nodeStatus.getType())) {
-                    String displayName = nodeStatus.getDisplayName();
-                    Collection<Template> storedTemplates = status.getStoredTemplates().values();
-                    statuses.putAll(storedTemplates
-                                        .stream()
-                                        .filter((Template storedTemplate) -> Constants.DAG_TEMPLATE_NAME.equals(
-                                            storedTemplate.getName()))
-                                        .flatMap((Template storedTemplate) -> storedTemplate
-                                            .getDag()
-                                            .getTasks()
-                                            .stream())
-                                        .filter((DagTask dagTask) -> displayName.equals(dagTask.getName()))
-                                        .flatMap((DagTask dagTask) -> dagTask
-                                            .getArguments()
-                                            .getParameters()
-                                            .stream())
-                                        .filter((Parameter parameter) -> parameter.getName().equals(GRAPH_ID))
-                                        .collect(Collectors.toMap(Parameter::getValue,
-                                                                  (Parameter parameter) -> nodeStatus.getPhase())));
-                }
-            }
-        } catch (ResourceNotFoundException e) {
-            LOGGER.info("Pipeline {} has not started yet", id);
-            runtimeData.setStatus(DRAFT_STATUS);
+        Workflow workflow = argoKubernetesService.getWorkflow(projectId, id);
+        WorkflowStatus status = workflow.getStatus();
+        String currentStatus = status.getPhase();
+        if (K8sUtils.FAILED_STATUS.equals(currentStatus)) {
+            currentStatus = K8sUtils.ERROR_STATUS;
         }
 
+        Map<String, String> statuses = new HashMap<>();
+        Map<String, NodeStatus> nodes = status.getNodes();
+        Collection<NodeStatus> nodeStatuses = new ArrayList<>();
+        if (nodes != null) {
+            nodeStatuses = nodes.values();
+        } else {
+            LOGGER.error(status.getMessage());
+        }
+
+        runtimeData.setStartedAt(DateTimeUtils.getFormattedDateTime(status.getStartedAt().toString()));
+        runtimeData.setFinishedAt(DateTimeUtils.getFormattedDateTime(String.valueOf(status.getFinishedAt())));
+        runtimeData.setStatus(currentStatus);
+        runtimeData.setProgress(status.getProgress());
+        runtimeData.setJobsStatuses(statuses);
+
+        for (NodeStatus nodeStatus : nodeStatuses) {
+            if (Constants.NODE_TYPE_POD.equals(nodeStatus.getType())) {
+                String displayName = nodeStatus.getDisplayName();
+                statuses.putAll(storedTemplates
+                                    .stream()
+                                    .filter((Template storedTemplate) -> Constants.DAG_TEMPLATE_NAME.equals(
+                                        storedTemplate.getName()))
+                                    .flatMap((Template storedTemplate) -> storedTemplate
+                                        .getDag()
+                                        .getTasks()
+                                        .stream())
+                                    .filter((DagTask dagTask) -> displayName.equals(dagTask.getName()))
+                                    .flatMap((DagTask dagTask) -> dagTask.getArguments().getParameters().stream())
+                                    .filter((Parameter parameter) -> parameter.getName().equals(GRAPH_ID))
+                                    .collect(Collectors.toMap(Parameter::getValue,
+                                                              (Parameter parameter) -> nodeStatus.getPhase())));
+            }
+        }
+        WorkflowSpec spec = workflow.getSpec();
+        Map<Predicate<WorkflowSpec>, String> customStatusMap = Map.of((WorkflowSpec::isSuspend),
+                                                                      K8sUtils.SUSPENDED_STATUS,
+                                                                      ((WorkflowSpec s) -> K8sUtils.SHUTDOWN_TERMINATE
+                                                                          .equals(s.getShutdown())),
+                                                                      K8sUtils.TERMINATED_STATUS,
+                                                                      ((WorkflowSpec s) -> K8sUtils.SHUTDOWN_STOP
+                                                                          .equals(s.getShutdown())),
+                                                                      K8sUtils.STOPPED_STATUS);
+        if (workflow.getSpec() != null) {
+            Optional<Map.Entry<Predicate<WorkflowSpec>, String>> customStatus = customStatusMap
+                .entrySet()
+                .stream()
+                .filter(predicateStringEntry -> predicateStringEntry.getKey().test(spec))
+                .findFirst();
+            customStatus.ifPresent((Map.Entry<Predicate<WorkflowSpec>, String> predicateStringEntry) -> runtimeData
+                .setStatus(predicateStringEntry.getValue()));
+        }
         return runtimeData;
     }
 
     /**
      * Append runtime info.
      *
-     * @param projectId project id
-     * @param id        pipeline id
-     * @param dto       dto
+     * @param projectId        project id
+     * @param id               pipeline id
+     * @param dto              dto
+     * @param workflowTemplate workflow template
      */
-    private void appendRuntimeInfo(String projectId, String id, PipelineOverviewDto dto) {
-        RuntimeData runtimeData = getRunTimeData(projectId, id);
-
-        dto
-            .startedAt(runtimeData.getStartedAt())
-            .finishedAt(runtimeData.getFinishedAt())
-            .status(runtimeData.getStatus())
-            .progress(runtimeData.getProgress())
-            .jobsStatuses(runtimeData.getJobsStatuses());
-
+    private void appendRuntimeInfo(
+        String projectId, String id, PipelineOverviewDto dto, WorkflowTemplate workflowTemplate) {
+        try {
+            RuntimeData runtimeData = getRunTimeData(projectId, id, workflowTemplate.getSpec().getTemplates());
+            dto
+                .startedAt(runtimeData.getStartedAt())
+                .finishedAt(runtimeData.getFinishedAt())
+                .status(runtimeData.getStatus())
+                .progress(runtimeData.getProgress())
+                .jobsStatuses(runtimeData.getJobsStatuses());
+        } catch (ResourceNotFoundException e) {
+            LOGGER.info("Pipeline {} has not started yet", id);
+        }
     }
 
     /**
@@ -790,7 +780,7 @@ public class PipelineService {
             PipelineOverviewDto pipelineOverviewDto = new PipelineOverviewDto()
                 .id(id)
                 .name(metadata.getLabels().get(Constants.NAME))
-                .status(DRAFT_STATUS)
+                .status(K8sUtils.DRAFT_STATUS)
                 .lastModified(metadata.getAnnotations().get(Constants.LAST_MODIFIED));
             try {
                 argoKubernetesService.getCronWorkflow(projectId, id);
@@ -798,25 +788,7 @@ public class PipelineService {
             } catch (ResourceNotFoundException e) {
                 LOGGER.info("There is no cron: {}", id);
             }
-            Map<String, String> annotations = metadata.getAnnotations();
-            String value = annotations.get(STOPPED_AT);
-            if (value == null) {
-                appendRuntimeInfo(projectId, id, pipelineOverviewDto);
-            } else {
-                Map<String, String> jobStatuses = new HashMap<>();
-                for (Map.Entry<String, String> entry : annotations.entrySet()) {
-                    if (entry.getKey().startsWith(ANNOTATION_JOB_STATUSES)) {
-                        jobStatuses.put(entry.getKey().substring(ANNOTATION_JOB_STATUSES.length()), entry.getValue());
-                    }
-
-                }
-                pipelineOverviewDto
-                    .startedAt(annotations.get(STARTED_AT))
-                    .finishedAt(annotations.get(FINISHED_AT))
-                    .status(annotations.get(STATUS))
-                    .progress(Double.parseDouble(annotations.get(PROGRESS)))
-                    .jobsStatuses(jobStatuses);
-            }
+            appendRuntimeInfo(projectId, id, pipelineOverviewDto, workflowTemplate);
             appendRunnable(getDagTaskFromWorkflowTemplateSpec(workflowTemplate.getSpec()),
                            pipelineOverviewDto,
                            accessibleToRun);
@@ -876,8 +848,6 @@ public class PipelineService {
     public void run(String projectId, String id) {
         WorkflowTemplate workflowTemplate = argoKubernetesService.getWorkflowTemplate(projectId, id);
         addParametersToDagTasks(workflowTemplate, projectId);
-        Map<String, String> annotations = workflowTemplate.getMetadata().getAnnotations();
-        annotations.remove(STOPPED_AT);
         argoKubernetesService.createOrReplaceWorkflowTemplate(projectId, workflowTemplate);
         argoKubernetesService.deleteWorkflow(projectId, id);
         Workflow workflow = new Workflow();
@@ -888,44 +858,20 @@ public class PipelineService {
 
 
     /**
-     * Stopping pipeline.
+     * Suspend pipeline.
      *
      * @param projectId project id
      * @param id        pipeline id
      */
-    public void stop(String projectId, String id) {
-        WorkflowTemplate workflowTemplate = argoKubernetesService.getWorkflowTemplate(projectId, id);
-        Workflow workflow = argoKubernetesService.getWorkflow(projectId, id);
-        RuntimeData runtimeData = getRunTimeData(projectId, id);
-        argoKubernetesService.deleteWorkflow(projectId, id);
-        WorkflowStatus status = workflow.getStatus();
-        Map<String, NodeStatus> nodes = status.getNodes();
-        Collection<NodeStatus> nodeStatuses = new ArrayList<>();
-        if (nodes != null) {
-            nodeStatuses = nodes.values();
-        } else {
-            LOGGER.error(status.getMessage());
-        }
-        Map<String, String> annotations = workflowTemplate.getMetadata().getAnnotations();
-        annotations.put(STOPPED_AT, " ");
-        for (NodeStatus nodeStatus : nodeStatuses) {
-            if (Constants.NODE_TYPE_POD.equals(nodeStatus.getType())) {
-                if (nodeStatus.getPhase().equals("Running")) {
-                    annotations.compute(STOPPED_AT, (key, value) -> value.concat(" " + nodeStatus.getName()));
-                }
-            }
-        }
-        annotations.put(STARTED_AT, runtimeData.getStartedAt());
-        annotations.put(FINISHED_AT, runtimeData.getFinishedAt());
-        annotations.put(STATUS, runtimeData.getStatus());
-        annotations.put(PROGRESS, String.valueOf(runtimeData.getProgress()));
-        Map<String, String> jobsStatuses = runtimeData.getJobsStatuses();
-        for (Map.Entry<String, String> entry : jobsStatuses.entrySet()) {
-            annotations.put(ANNOTATION_JOB_STATUSES.concat(entry.getKey()), entry.getValue());
-        }
-        workflowTemplate.getMetadata().setAnnotations(annotations);
-        argoKubernetesService.createOrReplaceWorkflowTemplate(projectId, workflowTemplate);
-
+    public void suspend(String projectId, String id) {
+        performArgoAction(projectId,
+                          id,
+                          ((RuntimeData data) -> List
+                              .of(K8sUtils.PENDING_STATUS, K8sUtils.RUNNING_STATUS)
+                              .contains(data.getStatus())),
+                          "You cannot suspend pipeline that hasn't been run",
+                          (String pId, String i) ->
+                              apiInstance.workflowServiceSuspendWorkflow(pId, i, new WorkflowSuspendRequest()));
     }
 
     /**
@@ -935,38 +881,12 @@ public class PipelineService {
      * @param id        pipeline id
      */
     public void resume(String projectId, String id) {
-        WorkflowTemplate workflowTemplate = argoKubernetesService.getWorkflowTemplate(projectId, id);
-        addParametersToDagTasks(workflowTemplate, projectId);
-        Map<String, String> annotations = workflowTemplate.getMetadata().getAnnotations();
-        String stoppedStage = annotations.get(STOPPED_AT);
-        annotations.remove(STOPPED_AT);
-        argoKubernetesService.createOrReplaceWorkflowTemplate(projectId, workflowTemplate);
-        WorkflowTemplateSpec templateSpec = workflowTemplate.getSpec();
-        List<DagTask> dagTasks = getDagTaskFromWorkflowTemplateSpec(templateSpec);
-        int index = 0;
-        for (DagTask dagTask : dagTasks) {
-            if (stoppedStage.contains(dagTask.getName())) {
-                index = dagTasks.indexOf(dagTask);
-                break;
-            }
-        }
-        List<DagTask> newDagTasks = dagTasks.subList(index, dagTasks.size());
-        List<Template> templates = templateSpec.getTemplates();
-        Template dagTemplate = templates
-            .stream()
-            .filter(template -> Constants.DAG_TEMPLATE_NAME.equals(template.getName()))
-            .findAny()
-            .orElseThrow(() -> new InternalProcessingException("Pipeline config is corrupted"));
-        dagTemplate.getDag().setTasks(newDagTasks);
-        WorkflowSpec workflowSpec = new WorkflowSpec()
-            .entrypoint(templateSpec.getEntrypoint())
-            .imagePullSecrets(templateSpec.getImagePullSecrets())
-            .templates(templates)
-            .serviceAccountName(templateSpec.getServiceAccountName());
-        Workflow workflow = new Workflow();
-        workflow.setMetadata(new ObjectMetaBuilder().withName(id).build());
-        workflow.setSpec(workflowSpec);
-        argoKubernetesService.createOrReplaceWorkflow(projectId, workflow);
+        performArgoAction(projectId,
+                          id,
+                          ((RuntimeData data) -> K8sUtils.SUSPENDED_STATUS.equals(data.getStatus())),
+                          "You" + " cannot resume pipeline that hasn't been suspended",
+                          (String pId, String i) ->
+                              apiInstance.workflowServiceResumeWorkflow(pId, i, new WorkflowResumeRequest()));
     }
 
     /**
@@ -1003,5 +923,91 @@ public class PipelineService {
     public CronPipelineDto getCronById(String projectId, String id) {
         CronWorkflow cronWorkflow = argoKubernetesService.getCronWorkflow(projectId, id);
         return CronPipelineDto.fromSpec(cronWorkflow.getSpec());
+    }
+
+    /**
+     * Terminate pipeline
+     *
+     * @param projectId project id
+     * @param id        workflow id
+     */
+    public void terminate(String projectId, String id) {
+        performArgoAction(projectId,
+                          id,
+                          ((RuntimeData data) -> List
+                              .of(K8sUtils.RUNNING_STATUS, K8sUtils.SUSPENDED_STATUS, K8sUtils.PENDING_STATUS)
+                              .contains(data.getStatus())),
+                          "You cannot terminate pipeline that hasn't been started or suspended",
+                          (String pId, String i) ->
+                              apiInstance.workflowServiceTerminateWorkflow(pId, i, new WorkflowTerminateRequest()));
+    }
+
+    /**
+     * Stop pipeline
+     *
+     * @param projectId project id
+     * @param id        workflow id
+     */
+    public void stop(String projectId, String id) {
+        performArgoAction(projectId,
+                          id,
+                          ((RuntimeData data) -> List
+                              .of(K8sUtils.RUNNING_STATUS, K8sUtils.SUSPENDED_STATUS, K8sUtils.PENDING_STATUS)
+                              .contains(data.getStatus())),
+                          "You cannot stop pipeline that hasn't been started " + "or suspended",
+                          (String pId, String i) ->
+                              apiInstance.workflowServiceStopWorkflow(pId, i, new WorkflowStopRequest()));
+    }
+
+    /**
+     * Retry pipeline which failed
+     *
+     * @param projectId project id
+     * @param id        workflow id
+     */
+    public void retry(String projectId, String id) {
+        performArgoAction(projectId,
+                          id,
+                          ((RuntimeData data) -> List
+                              .of(K8sUtils.FAILED_STATUS, K8sUtils.ERROR_STATUS)
+                              .contains(data.getStatus())),
+                          "You cannot retry pipeline that hasn't failed",
+                          (String pId, String i) ->
+                              apiInstance.workflowServiceRetryWorkflow(pId, i, new WorkflowRetryRequest()));
+    }
+
+    /**
+     * Perform custom argo action on pipeline that has been executed
+     *
+     * @param projectId        project id
+     * @param id               id
+     * @param check            whether the action can be performed
+     * @param onFailedCheckMsg custom message if action cannot be performed
+     * @param action           custom argo action
+     */
+    private void performArgoAction(
+        String projectId, String id, Predicate<RuntimeData> check, String onFailedCheckMsg, ArgoAction action) {
+        WorkflowTemplate workflowTemplate = argoKubernetesService.getWorkflowTemplate(projectId, id);
+        try {
+            RuntimeData runtimeData = getRunTimeData(projectId, id, workflowTemplate.getSpec().getTemplates());
+            if (!check.test(runtimeData)) {
+                throw new BadRequestException(onFailedCheckMsg);
+            }
+        } catch (ResourceNotFoundException e) {
+            throw new BadRequestException("Pipeline hasn't been run", e);
+        }
+        try {
+            action.perform(projectId, id);
+        } catch (ApiException e) {
+            throw new ArgoClientException(e);
+        }
+    }
+
+    /**
+     * Helper interface for argo operations
+     */
+    @FunctionalInterface
+    public interface ArgoAction {
+        void perform(String projectId, String id) throws ApiException;
     }
 }

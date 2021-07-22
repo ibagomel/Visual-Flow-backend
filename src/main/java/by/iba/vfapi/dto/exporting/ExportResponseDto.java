@@ -19,6 +19,8 @@
 
 package by.iba.vfapi.dto.exporting;
 
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Set;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -30,7 +32,10 @@ import lombok.Getter;
 @EqualsAndHashCode
 @Builder
 @Getter
+@Schema(description = "DTO with exported jobs/pipelines in serialized JSON format")
 public class ExportResponseDto {
+    @ArraySchema(arraySchema = @Schema(description = "List of exported jobs' structures"))
     private final Set<String> jobs;
+    @ArraySchema(arraySchema = @Schema(description = "List of exported pipelines' structures"))
     private final Set<String> pipelines;
 }

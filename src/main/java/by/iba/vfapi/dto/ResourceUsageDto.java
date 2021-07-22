@@ -23,6 +23,7 @@ import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.ResourceQuota;
 import io.fabric8.kubernetes.api.model.metrics.v1beta1.ContainerMetrics;
 import io.fabric8.kubernetes.api.model.metrics.v1beta1.PodMetrics;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Collection;
@@ -40,8 +41,11 @@ import lombok.ToString;
 @Builder(toBuilder = true)
 @EqualsAndHashCode
 @ToString
+@Schema(description = "DTO with percentages of used resources")
 public class ResourceUsageDto {
+    @Schema(description = "Percentages of used cpu resources", example = "0.5")
     private float cpu;
+    @Schema(description = "Percentages of used RAM", example = "0.64")
     private float memory;
 
     /**

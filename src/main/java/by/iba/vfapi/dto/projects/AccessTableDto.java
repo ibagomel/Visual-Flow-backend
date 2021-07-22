@@ -19,8 +19,10 @@
 
 package by.iba.vfapi.dto.projects;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import io.fabric8.kubernetes.api.model.rbac.RoleBinding;
 import io.fabric8.kubernetes.api.model.rbac.RoleBindingBuilder;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -39,10 +41,13 @@ import lombok.ToString;
 @Builder(toBuilder = true)
 @EqualsAndHashCode
 @ToString
+@Schema(description = "DTO with all access grants for specific project")
 public class AccessTableDto {
     public static final String USERNAME = "username";
 
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_ACCESS_GRANTS)
     private Map<String, String> grants;
+    @Schema(description = "Whether current user can modify access grants")
     private boolean editable;
 
     /**

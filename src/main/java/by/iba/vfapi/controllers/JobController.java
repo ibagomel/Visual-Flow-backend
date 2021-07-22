@@ -19,14 +19,18 @@
 
 package by.iba.vfapi.controllers;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.dto.LogDto;
 import by.iba.vfapi.dto.jobs.JobOverviewDto;
 import by.iba.vfapi.dto.jobs.JobOverviewListDto;
 import by.iba.vfapi.dto.jobs.JobRequestDto;
 import by.iba.vfapi.dto.jobs.JobResponseDto;
 import by.iba.vfapi.services.JobService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import javax.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -45,7 +49,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Job controller class.
  */
 @Slf4j
-@Api(tags = "Job API")
+@Tag(name = "Job API", description = "Manage jobs")
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("api/project")
@@ -58,7 +62,7 @@ public class JobController {
      * @param projectId project id
      * @return ResponseEntity with jobs graphs
      */
-    @ApiOperation(value = "Get all jobs in project")
+    @Operation(summary = "Get all jobs in a project", description = "Get information about all jobs in a project")
     @GetMapping("{projectId}/job")
     public JobOverviewListDto getAll(@PathVariable String projectId) {
         LOGGER.info("Receiving all jobs in project '{}'", projectId);
@@ -75,7 +79,9 @@ public class JobController {
      * @param jobRequestDto object with name and graph
      * @return ResponseEntity with id of new job
      */
-    @ApiOperation(value = "Creating new job in project")
+    @Operation(summary = "Create a new job", description = "Create a new job in the project", responses =
+        {@ApiResponse(responseCode = "200", description = "Id of a new job", content = @Content(schema =
+        @Schema(ref = OpenApiConfig.SCHEMA_UUID_ONE)))})
     @PostMapping("{projectId}/job")
     public ResponseEntity<String> create(
         @PathVariable String projectId, @Valid @RequestBody JobRequestDto jobRequestDto) {
@@ -92,7 +98,7 @@ public class JobController {
      * @param id            job id
      * @param jobRequestDto object with name and graph
      */
-    @ApiOperation(value = "Updating job in project by id")
+    @Operation(summary = "Update existing job", description = "Update existing job with a new structure")
     @PostMapping("{projectId}/job/{id}")
     public void update(
         @PathVariable String projectId, @PathVariable String id, @Valid @RequestBody JobRequestDto jobRequestDto) {
@@ -108,7 +114,7 @@ public class JobController {
      * @param id        job id
      * @return ResponseEntity with job graph
      */
-    @ApiOperation(value = "Getting job in project by id")
+    @Operation(summary = "Get information about the job", description = "Fetch job's structure by id")
     @GetMapping("{projectId}/job/{id}")
     public JobResponseDto get(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Receiving job '{}' in project '{}'", id, projectId);
@@ -121,9 +127,11 @@ public class JobController {
      * @param projectId project id
      * @param id        job id
      */
-    @ApiOperation(value = "Deleting job in project by id")
+    @Operation(summary = "Delete the job", description = "Delete existing job with all it's instances",
+        responses = {
+        @ApiResponse(responseCode = "204", description = "Indicates successful job deletion")})
     @DeleteMapping("{projectId}/job/{id}")
-    public ResponseEntity<String> delete(@PathVariable String projectId, @PathVariable String id) {
+    public ResponseEntity<Void> delete(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Deleting '{}' job in project '{}'", id, projectId);
         jobService.delete(projectId, id);
         LOGGER.info("Job '{}' in project '{}' successfully deleted", id, projectId);
@@ -137,7 +145,7 @@ public class JobController {
      * @param id        job id
      * @return ResponseEntity with list of logs objects
      */
-    @ApiOperation(value = "Getting job logs")
+    @Operation(summary = "Get job logs", description = "Get all logs for a specific job")
     @GetMapping("{projectId}/job/{id}/logs")
     public List<LogDto> getLogs(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Receiving job '{}' logs in project '{}'", id, projectId);
@@ -150,7 +158,7 @@ public class JobController {
      * @param projectId project id
      * @param id        job id
      */
-    @ApiOperation(value = "Run job")
+    @Operation(summary = "Run the job", description = "Create a new pod with configuration to execute a spark-job")
     @PostMapping("{projectId}/job/{id}/run")
     public void run(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Running job '{}' in project '{}'", id, projectId);
@@ -164,7 +172,7 @@ public class JobController {
      * @param projectId project id
      * @param id        job id
      */
-    @ApiOperation(value = "Stop job")
+    @Operation(summary = "Stop the job", description = "Stop/delete the pod with a running spark-job")
     @PostMapping("{projectId}/job/{id}/stop")
     public void stop(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Stopping job '{}' in project '{}'", id, projectId);

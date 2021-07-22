@@ -19,6 +19,7 @@
 
 package by.iba.vfapi.dto.importing;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.ToString;
@@ -29,6 +30,8 @@ import lombok.ToString;
 @AllArgsConstructor
 @Getter
 @ToString
+@Schema(description = "Import access DTO")
 public class ImportAccessDto {
+    @Schema(description = "Whether the user can use import functionality")
     private final boolean access;
 }

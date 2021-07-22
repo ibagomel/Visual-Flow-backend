@@ -19,12 +19,14 @@
 
 package by.iba.vfapi.dto.jobs;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.dto.Constants;
 import by.iba.vfapi.exceptions.InternalProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,15 +45,23 @@ import org.apache.commons.codec.binary.Base64;
 @ToString
 public class JobResponseDto {
     private static final ObjectMapper MAPPER = new ObjectMapper();
-
+    @Schema(description = "Job's name", example = "test_Job1")
     private final String name;
+    @Schema(ref = OpenApiConfig.SCHEMA_JOB_DEFINITION)
     private final JsonNode definition;
+    @Schema(ref = OpenApiConfig.SCHEMA_DATETIME_FIRST)
     private final String startedAt;
+    @Schema(ref = OpenApiConfig.SCHEMA_DATETIME_SECOND)
     private final String finishedAt;
+    @Schema(ref = OpenApiConfig.SCHEMA_DATETIME_FIRST)
     private final String lastModified;
+    @Schema(ref = OpenApiConfig.SCHEMA_JOB_PARAMS)
     private final Map<String, String> params;
+    @Schema(ref = OpenApiConfig.SCHEMA_JOB_STATUS)
     private final String status;
+    @Schema(description = "Whether current user can run the job and whether the job has some stages in it")
     private final boolean runnable;
+    @Schema(description = "Whether current user can edit the job.")
     private final boolean editable;
 
     /**

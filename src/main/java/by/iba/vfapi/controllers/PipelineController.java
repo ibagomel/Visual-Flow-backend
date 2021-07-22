@@ -19,13 +19,17 @@
 
 package by.iba.vfapi.controllers;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.dto.pipelines.CronPipelineDto;
 import by.iba.vfapi.dto.pipelines.PipelineOverviewListDto;
 import by.iba.vfapi.dto.pipelines.PipelineRequestDto;
 import by.iba.vfapi.dto.pipelines.PipelineResponseDto;
 import by.iba.vfapi.services.PipelineService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import javax.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +47,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Manage requests for pipelines.
  */
 @Slf4j
-@Api(tags = "Pipeline API")
+@Tag(name = "Pipeline API", description = "Manage pipelines")
 @RequiredArgsConstructor
 @RequestMapping("api/project")
 @RestController
@@ -58,6 +62,10 @@ public class PipelineController {
      * @param pipelineRequestDto id and graph for pipeline
      * @return ResponseEntity
      */
+    @Operation(summary = "Create a new pipeline", description = "Create a new pipeline in the project",
+        responses = {
+        @ApiResponse(responseCode = "201", description = "Id of a new pipeline", content = @Content(schema =
+        @Schema(ref = OpenApiConfig.SCHEMA_UUID_TWO)))})
     @PostMapping(value = "{projectId}/pipeline")
     public ResponseEntity<String> create(
         @PathVariable String projectId, @Valid @RequestBody PipelineRequestDto pipelineRequestDto) {
@@ -75,6 +83,7 @@ public class PipelineController {
      * @param id        pipeline id
      * @return pipeline graph
      */
+    @Operation(summary = "Get information about the pipeline", description = "Fetch pipeline's structure by id")
     @GetMapping(value = "{projectId}/pipeline/{id}")
     public PipelineResponseDto get(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Receiving pipeline '{}' in project '{}'", id, projectId);
@@ -89,6 +98,7 @@ public class PipelineController {
      * @param pipelineRequestDto new id and graph for pipeline
      */
     @PostMapping(value = "{projectId}/pipeline/{id}")
+    @Operation(summary = "Update existing pipeline", description = "Update existing pipeline with a new structure")
     public void update(
         @PathVariable String projectId,
         @PathVariable String id,
@@ -105,8 +115,10 @@ public class PipelineController {
      * @param projectId project id
      * @param id        pipeline id
      */
+    @Operation(summary = "Delete the pipeline", description = "Delete existing pipeline", responses =
+        {@ApiResponse(responseCode = "204", description = "Indicates successful pipeline deletion")})
     @DeleteMapping(value = "{projectId}/pipeline/{id}")
-    public ResponseEntity<String> delete(@PathVariable String projectId, @PathVariable String id) {
+    public ResponseEntity<Void> delete(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Deleting pipeline '{}' in project '{}'", id, projectId);
         pipelineService.delete(projectId, id);
         LOGGER.info("Pipeline '{}' in project '{}' successfully deleted", id, projectId);
@@ -119,7 +131,8 @@ public class PipelineController {
      * @param projectId project id
      * @return ResponseEntity with jobs graphs
      */
-    @ApiOperation(value = "Get all pipelines in project")
+    @Operation(summary = "Get all pipelines in a project", description = "Get information about all pipelines in" +
+        " a project")
     @GetMapping("{projectId}/pipeline")
     public PipelineOverviewListDto getAll(@PathVariable String projectId) {
         LOGGER.info("Receiving all pipelines in project '{}'", projectId);
@@ -132,6 +145,7 @@ public class PipelineController {
      * @param projectId project id
      * @param id        pipeline id
      */
+    @Operation(summary = "Run the pipeline", description = "Create a new Workflow in order to run the pipeline")
     @PostMapping(value = "{projectId}/pipeline/{id}/run")
     public void run(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Running pipeline '{}' in project '{}'", id, projectId);
@@ -146,11 +160,60 @@ public class PipelineController {
      * @param projectId project id
      * @param id        pipeline id
      */
+    @Operation(summary = "Suspend the pipeline", description = "Suspend the Workflow associated with specific " +
+        "pipeline")
+    @PostMapping(value = "{projectId}/pipeline/{id}/suspend")
+    public void suspend(@PathVariable String projectId, @PathVariable String id) {
+        LOGGER.info("Suspending pipeline '{}' in project '{}'", id, projectId);
+        pipelineService.suspend(projectId, id);
+        LOGGER.info("Pipeline '{}' in project '{}' has been suspended successfully ", id, projectId);
+
+    }
+
+    /**
+     * Terminate pipeline.
+     *
+     * @param projectId project id
+     * @param id        pipeline id
+     */
+    @Operation(summary = "Terminate the pipeline", description = "Terminate the Workflow associated with " +
+        "specific pipeline")
+    @PostMapping(value = "{projectId}/pipeline/{id}/terminate")
+    public void terminate(@PathVariable String projectId, @PathVariable String id) {
+        LOGGER.info("Terminating pipeline '{}' in project '{}'", id, projectId);
+        pipelineService.terminate(projectId, id);
+        LOGGER.info("Pipeline '{}' in project '{}' has been terminated successfully ", id, projectId);
+
+    }
+
+    /**
+     * Stop pipeline.
+     *
+     * @param projectId project id
+     * @param id        pipeline id
+     */
+    @Operation(summary = "Stop the pipeline", description = "Stop the Workflow associated with specific pipeline")
     @PostMapping(value = "{projectId}/pipeline/{id}/stop")
     public void stop(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Stopping pipeline '{}' in project '{}'", id, projectId);
         pipelineService.stop(projectId, id);
-        LOGGER.info("Pipeline '{}' in project '{}' stopped successfully ", id, projectId);
+        LOGGER.info("Pipeline '{}' in project '{}' has been stopped successfully ", id, projectId);
+
+    }
+
+    /**
+     * Retry pipeline's failed stages.
+     *
+     * @param projectId project id
+     * @param id        pipeline id
+     */
+    @Operation(summary = "Retry the pipeline", description = "Retry the Workflow associated with specific " +
+        "pipeline")
+    @PostMapping(value = "{projectId}/pipeline/{id}/retry")
+    public void retry(@PathVariable String projectId, @PathVariable String id) {
+        LOGGER.info("Retrying pipeline '{}' in project '{}'", id, projectId);
+        pipelineService.retry(projectId, id);
+        LOGGER.info("Pipeline '{}' in project '{}' has been successfully retried", id, projectId);
 
     }
 
@@ -160,6 +223,8 @@ public class PipelineController {
      * @param projectId project id
      * @param id        pipeline id
      */
+    @Operation(summary = "Resume the pipeline", description = "Resume the Workflow associated with specific " +
+        "pipeline")
     @PostMapping(value = "{projectId}/pipeline/{id}/resume")
     public void resume(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Resuming pipeline '{}' in project '{}'", id, projectId);
@@ -175,6 +240,8 @@ public class PipelineController {
      * @param id              pipeline id
      * @param cronPipelineDto cron data
      */
+    @Operation(summary = "Create a scheduled pipeline", description = "Create a scheduled CronWorkflow based on " +
+        "existing pipeline")
     @PostMapping(value = "{projectId}/pipeline/{id}/cron")
     public void createCron(
         @PathVariable String projectId,
@@ -191,11 +258,15 @@ public class PipelineController {
      * @param projectId project id
      * @param id        pipeline id
      */
+    @Operation(summary = "Delete a scheduled pipeline", description = "Delete a scheduled CronWorkflow bound to " +
+        "existing pipeline", responses = {@ApiResponse(responseCode = "204", description = "Indicates successful" +
+        " pipeline deletion")})
     @DeleteMapping(value = "{projectId}/pipeline/{id}/cron")
-    public void deleteCron(@PathVariable String projectId, @PathVariable String id) {
+    public ResponseEntity<Void> deleteCron(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Deleting cron on pipeline '{}' in project '{}' ", id, projectId);
         pipelineService.deleteCron(projectId, id);
         LOGGER.info("Cron on pipeline '{}' in project '{}' successfully deleted", id, projectId);
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -205,6 +276,8 @@ public class PipelineController {
      * @param id        pipeline id
      * @return pipeline graph
      */
+    @Operation(summary = "Get a scheduled pipeline", description = "Get a scheduled CronWorkflow bound to " +
+        "existing pipeline")
     @GetMapping(value = "{projectId}/pipeline/{id}/cron", produces = "application/json")
     public CronPipelineDto getCronPipeline(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Receiving cron on pipeline '{}' in project '{}'", id, projectId);

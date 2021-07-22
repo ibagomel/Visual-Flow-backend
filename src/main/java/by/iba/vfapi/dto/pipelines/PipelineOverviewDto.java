@@ -19,6 +19,8 @@
 
 package by.iba.vfapi.dto.pipelines;
 
+import by.iba.vfapi.config.OpenApiConfig;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Map;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -32,16 +34,27 @@ import lombok.ToString;
 @NoArgsConstructor
 @Getter
 @ToString
+@Schema(description = "DTO with basic info about the pipeline")
 public class PipelineOverviewDto {
+    @Schema(ref = OpenApiConfig.SCHEMA_UUID_TWO)
     private String id;
+    @Schema(description = "Pipeline's name", example = "test_pipe321")
     private String name;
+    @Schema(ref = OpenApiConfig.SCHEMA_DATETIME_FIRST)
     private String lastModified;
+    @Schema(ref = OpenApiConfig.SCHEMA_DATETIME_FIRST)
     private String startedAt;
+    @Schema(ref = OpenApiConfig.SCHEMA_DATETIME_SECOND)
     private String finishedAt;
+    @Schema(ref = OpenApiConfig.SCHEMA_PIPELINE_STATUS)
     private String status;
+    @Schema(description = "Pipeline's completion progress")
     private double progress;
+    @Schema(description = "Whether pipeline is represented by scheduled workflow")
     private boolean cron;
+    @Schema(description = "Whether current user can run the pipeline")
     private boolean runnable;
+    @Schema(ref = OpenApiConfig.SCHEMA_PIPELINE_STAGE_STATUSES)
     private Map<String, String> jobsStatuses;
 
     /**

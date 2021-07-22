@@ -19,6 +19,7 @@
 
 package by.iba.vfapi.dto.pipelines;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -30,7 +31,9 @@ import lombok.Getter;
 @Builder
 @EqualsAndHashCode
 @Getter
+@Schema(description = "DTO with list of pipelines")
 public class PipelineOverviewListDto {
     private final List<PipelineOverviewDto> pipelines;
+    @Schema(description = "Whether pipelines can be updated by current user")
     private final boolean editable;
 }

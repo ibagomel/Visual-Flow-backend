@@ -19,6 +19,8 @@
 
 package by.iba.vfapi.dto.projects;
 
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -32,7 +34,10 @@ import lombok.Setter;
 @Setter
 @Builder
 @EqualsAndHashCode
+@Schema(description = "DTO with essential information about the projects")
 public class ProjectOverviewListDto {
+    @ArraySchema(uniqueItems = true, arraySchema = @Schema(description = "List with essential project info"))
     private List<ProjectOverviewDto> projects;
+    @Schema(description = "Whether projects are editable for current user")
     private boolean editable;
 }

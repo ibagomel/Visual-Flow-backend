@@ -19,9 +19,11 @@
 
 package by.iba.vfapi.dto.projects;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.dto.Constants;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.NamespaceFluent;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Map;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
@@ -41,14 +43,18 @@ import lombok.ToString;
 @Builder(toBuilder = true)
 @EqualsAndHashCode
 @ToString
+@Schema(description = "DTO with project's name, description and quota limits")
 public class ProjectRequestDto {
     @Pattern(regexp = Constants.NAME_PATTERN)
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_NAME)
     private String name;
     @NotNull
     @Size(max = Constants.MAX_DESCRIPTION_LENGTH)
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_DESCRIPTION)
     private String description;
     @NotNull
     @Valid
+    @Schema(description = "Project's quota information")
     private ResourceQuotaRequestDto limits;
 
     /**

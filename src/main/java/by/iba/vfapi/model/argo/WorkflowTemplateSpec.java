@@ -19,6 +19,7 @@
 
 package by.iba.vfapi.model.argo;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,6 +36,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @EqualsAndHashCode
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class WorkflowTemplateSpec implements Serializable {
     private static final long serialVersionUID = 1;
 

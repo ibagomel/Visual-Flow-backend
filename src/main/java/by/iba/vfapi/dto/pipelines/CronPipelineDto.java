@@ -20,6 +20,7 @@
 package by.iba.vfapi.dto.pipelines;
 
 import by.iba.vfapi.model.argo.CronWorkflowSpec;
+import io.swagger.v3.oas.annotations.media.Schema;
 import javax.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -35,9 +36,12 @@ import lombok.Setter;
 @Builder
 @Getter
 @Setter
+@Schema(description = "DTO for a scheduled pipeline")
 public class CronPipelineDto {
     @NotNull
+    @Schema(description = "Schedule at which the Workflow will be run", example = "5 4 * * *")
     private String schedule;
+    @Schema(description = "If true Workflow scheduling will not occur")
     private boolean suspend;
 
     public static CronPipelineDto fromSpec(CronWorkflowSpec cronWorkflowSpec) {

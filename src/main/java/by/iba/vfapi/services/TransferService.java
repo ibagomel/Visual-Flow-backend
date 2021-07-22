@@ -33,7 +33,9 @@ import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import io.fabric8.kubernetes.client.ResourceNotFoundException;
 import io.fabric8.kubernetes.client.utils.Serialization;
+import java.time.ZonedDateTime;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -149,7 +151,10 @@ public class TransferService {
             ConfigMap configMap = Serialization.unmarshal(jsonJob, ConfigMap.class);
             String id = configMap.getMetadata().getName();
             String name = configMap.getMetadata().getLabels().get(Constants.NAME);
-
+            configMap
+                .getMetadata()
+                .getAnnotations()
+                .put(Constants.LAST_MODIFIED, ZonedDateTime.now().format(Constants.DATE_TIME_FORMATTER));
             try {
                 jobService.checkJobName(projectId, id, name);
                 argoKubernetesService.createOrReplaceConfigMap(projectId, configMap);
@@ -176,13 +181,19 @@ public class TransferService {
             WorkflowTemplate workflowTemplate = Serialization.unmarshal(jsonPipeline, WorkflowTemplate.class);
             String name = workflowTemplate.getMetadata().getLabels().get(Constants.NAME);
             String id = workflowTemplate.getMetadata().getName();
-
+            workflowTemplate
+                .getMetadata()
+                .getAnnotations()
+                .put(Constants.LAST_MODIFIED, ZonedDateTime.now().format(Constants.DATE_TIME_FORMATTER));
             try {
                 pipelineService.checkPipelineName(projectId, id, name);
                 argoKubernetesService.createOrReplaceWorkflowTemplate(projectId, workflowTemplate);
+                argoKubernetesService.deleteWorkflow(projectId, id);
             } catch (BadRequestException ex) {
                 LOGGER.error(ex.getMessage(), ex);
                 notImported.add(id);
+            } catch (ResourceNotFoundException e) {
+                LOGGER.info("No workflows to remove");
             }
         }
 

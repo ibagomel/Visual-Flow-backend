@@ -20,6 +20,7 @@
 package by.iba.vfapi.dto.projects;
 
 import by.iba.vfapi.dto.Constants;
+import io.swagger.v3.oas.annotations.media.Schema;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 import lombok.Builder;
@@ -36,12 +37,18 @@ import lombok.ToString;
 @Builder(toBuilder = true)
 @EqualsAndHashCode
 @ToString
+@Schema(description = "DTO that represents project param")
 public class ParamDto {
     @NotNull
     @Pattern(regexp = Constants.PARAM_KEY_PATTERN)
+    @Schema(description = "Parameter's name", example = "testParam1")
     private String key;
     @NotNull
+    @Schema(description = "Parameter's value. Note that leading/trailing spaces will be removed automatically",
+        example = "some value")
     private String value;
     @NotNull
+    @Schema(description = "Whether parameter is considered a secret. This flag is only used for presentation. " +
+        "Secret params do not get special treatment.")
     private Boolean secret;
 }

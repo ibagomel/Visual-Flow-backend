@@ -19,8 +19,10 @@
 
 package by.iba.vfapi.dto.projects;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.dto.Constants;
 import io.fabric8.kubernetes.api.model.Namespace;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -35,12 +37,17 @@ import lombok.ToString;
 @EqualsAndHashCode
 @Builder(toBuilder = true)
 @ToString
+@Schema(description = "DTO with information about the project")
 public class ProjectResponseDto {
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_NAME)
     private String name;
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_ID)
     private String id;
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_DESCRIPTION)
     private String description;
     private ResourceQuotaResponseDto limits;
     private ResourceQuotaResponseDto usage;
+    @Schema(description = "Whether namespace/project is editable")
     private boolean editable;
 
     /**

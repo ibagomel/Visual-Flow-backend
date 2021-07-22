@@ -19,7 +19,9 @@
 
 package by.iba.vfapi.dto.pipelines;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import com.fasterxml.jackson.databind.JsonNode;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -32,8 +34,11 @@ import lombok.ToString;
 @Getter
 @ToString
 @EqualsAndHashCode(callSuper = true)
+@Schema(description = "DTO with basic information about pipeline that's extended with it's definition")
 public class PipelineResponseDto extends PipelineOverviewDto {
+    @Schema(ref = OpenApiConfig.SCHEMA_PIPELINE_DEFINITION)
     private JsonNode definition;
+    @Schema(description = "Whether a current user can modify the pipeline")
     private boolean editable;
 
     /**

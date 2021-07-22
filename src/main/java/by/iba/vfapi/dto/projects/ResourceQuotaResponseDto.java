@@ -19,9 +19,11 @@
 
 package by.iba.vfapi.dto.projects;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.dto.Constants;
 import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.ResourceQuota;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.RoundingMode;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -37,11 +39,17 @@ import lombok.ToString;
 @Builder(toBuilder = true)
 @EqualsAndHashCode
 @ToString
+@Schema(description = "DTO with quota info")
 public class ResourceQuotaResponseDto {
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_LIMIT_CPU)
     private Float limitsCpu;
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_REQUIRE_CPU)
     private Float requestsCpu;
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_LIMIT_MEMORY)
     private Float limitsMemory;
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_REQUIRE_MEMORY)
     private Float requestsMemory;
+    @Schema(description = "Whether quota modification is allowed")
     private boolean editable;
 
     /**

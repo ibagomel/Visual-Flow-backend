@@ -19,11 +19,15 @@
 
 package by.iba.vfapi.controllers;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.model.auth.UserInfo;
 import by.iba.vfapi.services.UserService;
 import by.iba.vfapi.services.auth.AuthenticationService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
  * User controller class.
  */
 @Slf4j
-@Api(tags = "User API")
+@Tag(name = "User API", description = "Get information about app users")
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("api")
@@ -49,7 +53,8 @@ public class UserController {
      *
      * @return user information.
      */
-    @ApiOperation(value = "Retrieves current user information")
+    @Operation(summary = "Get current user's information", description = "Get essential information about " +
+        "current user")
     @GetMapping("/user")
     public UserInfo whoAmI() {
         LOGGER.info("Receiving information about current user");
@@ -61,7 +66,9 @@ public class UserController {
      *
      * @return application users.
      */
-    @ApiOperation(value = "Retrieves application users")
+    @Operation(summary = "Get application users", description = "Get information about all users", responses =
+        {@ApiResponse(responseCode = "200", content = @Content(schema =
+        @Schema(ref = OpenApiConfig.SCHEMA_USERS)))})
     @GetMapping("/users")
     public List<Map<String, String>> getUsers() {
         LOGGER.info("Receiving users of application");
@@ -73,7 +80,9 @@ public class UserController {
      *
      * @return application roles.
      */
-    @ApiOperation(value = "Retrieves application roles")
+    @Operation(summary = "Get application roles", description = "Get all defined cluster roles", responses =
+        {@ApiResponse(responseCode = "200", content = @Content(schema =
+        @Schema(ref = OpenApiConfig.SCHEMA_ROLES)))})
     @GetMapping("/roles")
     public List<String> getRoles() {
         LOGGER.info("Receiving roles of application");

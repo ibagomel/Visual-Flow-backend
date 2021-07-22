@@ -19,6 +19,7 @@
 
 package by.iba.vfapi.controllers;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.dto.ResourceUsageDto;
 import by.iba.vfapi.dto.projects.AccessTableDto;
 import by.iba.vfapi.dto.projects.ParamDto;
@@ -29,8 +30,11 @@ import by.iba.vfapi.dto.projects.ProjectResponseDto;
 import by.iba.vfapi.model.auth.UserInfo;
 import by.iba.vfapi.services.ProjectService;
 import by.iba.vfapi.services.auth.AuthenticationService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 import javax.validation.Valid;
@@ -51,7 +55,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Project controller class.
  */
 @Slf4j
-@Api(tags = "Project API")
+@Tag(name = "Project API", description = "Manage projects")
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("api/project")
@@ -66,8 +70,10 @@ public class ProjectController {
      * @param projectDto object that contains initial data
      * @return ResponseEntity with status code
      */
-    @ApiOperation(value = "Create project")
+    @Operation(summary = "Create a new project", description = "Create a new empty project")
     @PostMapping
+    @ApiResponse(responseCode = "201", description = "Id of a new project", content = {@Content(schema =
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_ID))})
     public ResponseEntity<String> create(@RequestBody @Valid final ProjectRequestDto projectDto) {
         LOGGER.info("Creating project");
         String id = projectService.create(projectDto);
@@ -81,7 +87,7 @@ public class ProjectController {
      * @param id project id.
      * @return ResponseEntity with status code and project date (ProjectDto).
      */
-    @ApiOperation(value = "Get project by id")
+    @Operation(summary = "Get a project", description = "Get information about the project by it's id")
     @GetMapping("/{id}")
     public ProjectResponseDto get(@PathVariable final String id) {
         LOGGER.info("Receiving project '{}' ", id);
@@ -93,7 +99,8 @@ public class ProjectController {
      *
      * @return project list.
      */
-    @ApiOperation(value = "Get project list")
+    @Operation(summary = "Get list with all projects", description = "Get list with all projects that you have " +
+        "access to")
     @GetMapping
     public ProjectOverviewListDto getAll() {
         LOGGER.info("Receiving list of projects");
@@ -106,7 +113,8 @@ public class ProjectController {
      * @param id         project id.
      * @param projectDto new project params.
      */
-    @ApiOperation(value = "Update project")
+    @Operation(summary = "Update the project", description = "Update existing project by providing new " +
+        "name/description/quota")
     @PostMapping("/{id}")
     public void update(
         @PathVariable final String id, @RequestBody @Valid final ProjectRequestDto projectDto) {
@@ -121,9 +129,11 @@ public class ProjectController {
      * @param id project id.
      * @return ResponseEntity with 204 status code.
      */
-    @ApiOperation(value = "Delete project by id")
+    @Operation(summary = "Delete the project", description = "Delete existing project with all related " +
+        "pipelines/jobs", responses = {@ApiResponse(responseCode = "204", description = "Indicates successful " +
+        "project deletion")})
     @DeleteMapping("/{id}")
-    public ResponseEntity<Object> delete(@PathVariable final String id) {
+    public ResponseEntity<Void> delete(@PathVariable final String id) {
         LOGGER.info("Deleting project '{}'", id);
         projectService.delete(id);
         LOGGER.info("Project '{}' successfully deleted", id);
@@ -136,7 +146,8 @@ public class ProjectController {
      * @param id project id.
      * @return project usage info.
      */
-    @ApiOperation(value = "Get project resource utilization")
+    @Operation(summary = "Get project resource utilization", description = "Get resource utilization by " +
+        "observing k8s pod metrics and quota")
     @GetMapping("/{id}/usage")
     public ResourceUsageDto getUsage(@PathVariable String id) {
         LOGGER.info("Receiving project '{}' resource utilization", id);
@@ -149,7 +160,7 @@ public class ProjectController {
      * @param id        project id.
      * @param paramsDto list of parameters to create/update.
      */
-    @ApiOperation(value = "Create or updates params for given project")
+    @Operation(summary = "Create or update project params", description = "Create/Update params for given project")
     @PostMapping("/{id}/params")
     public void updateParams(
         @PathVariable final String id, @RequestBody @Valid final List<ParamDto> paramsDto) {
@@ -164,7 +175,7 @@ public class ProjectController {
      * @param id project id.
      * @return project parameters.
      */
-    @ApiOperation(value = "Gets params for given project")
+    @Operation(summary = "Get all project params", description = "Fetch all params for given project")
     @GetMapping("/{id}/params")
     public ParamsDto getParams(@PathVariable final String id) {
         LOGGER.info("Receiving params for the '{}' project", id);
@@ -177,8 +188,13 @@ public class ProjectController {
      * @param id          project id.
      * @param accessTable user - role map.
      */
-    @ApiOperation(value = "Applies access grants for given project")
+    @Operation(summary = "Manage project access grants", description = "Replace existing access grants with " +
+        "provided ones")
     @PostMapping("/{id}/users")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "The updated version of project grants " +
+        "that will replace old one. Note that usernames must point to existing users and roles must be defined " +
+        "as Cluster roles", content = {@Content(schema = @Schema(ref =
+        OpenApiConfig.SCHEMA_PROJECT_ACCESS_GRANTS))})
     public void applyAccessTable(
         @PathVariable final String id, @RequestBody final Map<String, String> accessTable) {
         LOGGER.info("Applying access grants for the project '{}'", id);
@@ -193,7 +209,8 @@ public class ProjectController {
      * @param id project id.
      * @return user - role map.
      */
-    @ApiOperation(value = "Retrieves access grants for given project")
+    @Operation(summary = "Get project access grants", description = "Fetch all users with roles that were " +
+        "assigned to them in given project")
     @GetMapping("/{id}/users")
     public AccessTableDto getAccessTable(@PathVariable final String id) {
         LOGGER.info("Receiving access grants table for the project '{}'", id);

@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) 2021 IBA Group, a.s. All rights reserved.
+ *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,7 +19,6 @@
 
 package by.iba.vfapi.dto;
 
-import by.iba.vfapi.services.PipelineService;
 import java.time.format.DateTimeFormatter;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -76,10 +77,8 @@ public final class Constants {
 
     public static final String NODE_TYPE_POD = "Pod";
 
-    public static final String STOPPED_AT = "STOPPED_AT";
     public static final String STARTED_AT = "STARTED_AT";
     public static final String FINISHED_AT = "FINISHED_AT";
-    public static final String STATUS = "STATUS";
     public static final String PROGRESS = "PROGRESS";
     public static final String ANNOTATION_JOB_STATUSES = "AnnotationForJobStatuses";
     public static final String NODE_OPERATION = "operation";

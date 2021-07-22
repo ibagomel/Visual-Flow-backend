@@ -19,12 +19,14 @@
 
 package by.iba.vfapi.dto.jobs;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.dto.Constants;
 import by.iba.vfapi.dto.ResourceUsageDto;
 import by.iba.vfapi.services.DateTimeUtils;
 import by.iba.vfapi.services.K8sUtils;
 import io.fabric8.kubernetes.api.model.ContainerStateTerminated;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -37,11 +39,17 @@ import lombok.ToString;
 @EqualsAndHashCode
 @Getter
 @ToString
+@Schema(description = "DTO that represents job instance that is bound to some pipeline")
 public class PipelineJobOverviewDto {
+    @Schema(ref = OpenApiConfig.SCHEMA_INSTANCE_UUID_ONE)
     private final String id;
+    @Schema(ref = OpenApiConfig.SCHEMA_UUID_ONE)
     private final String pipelineId;
+    @Schema(ref = OpenApiConfig.SCHEMA_DATETIME_FIRST)
     private final String startedAt;
+    @Schema(ref = OpenApiConfig.SCHEMA_DATETIME_FIRST)
     private final String finishedAt;
+    @Schema(ref = OpenApiConfig.SCHEMA_JOB_STATUS)
     private final String status;
     private final ResourceUsageDto usage;
 

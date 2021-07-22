@@ -19,6 +19,8 @@
 
 package by.iba.vfapi.dto.importing;
 
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import javax.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -33,9 +35,12 @@ import lombok.Setter;
 @NoArgsConstructor
 @Getter
 @Setter
+@Schema(description = "DTO with structure of jobs/pipelines in serialized JSON format that will be imported")
 public class ImportRequestDto {
     @NotNull
+    @ArraySchema(arraySchema = @Schema(description = "List of pipelines' structures"))
     private List<String> pipelines;
     @NotNull
+    @ArraySchema(arraySchema = @Schema(description = "List of jobs' structures"))
     private List<String> jobs;
 }

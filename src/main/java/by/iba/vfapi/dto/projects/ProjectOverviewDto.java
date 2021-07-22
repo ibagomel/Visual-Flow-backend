@@ -19,8 +19,10 @@
 
 package by.iba.vfapi.dto.projects;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.dto.Constants;
 import io.fabric8.kubernetes.api.model.Namespace;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -35,9 +37,13 @@ import lombok.ToString;
 @Builder(toBuilder = true)
 @EqualsAndHashCode
 @ToString
+@Schema(description = "DTO with essential project info")
 public class ProjectOverviewDto {
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_NAME)
     private String name;
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_ID)
     private String id;
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_DESCRIPTION)
     private String description;
 
     /**

@@ -21,6 +21,8 @@ package by.iba.vfapi.dto.projects;
 
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.SecretBuilder;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
@@ -45,12 +47,15 @@ import org.apache.commons.codec.binary.Base64;
 @Builder(toBuilder = true)
 @EqualsAndHashCode
 @ToString
+@Schema(description = "DTO with list of project params")
 public class ParamsDto {
     public static final String SECRET_NAME = "secret";
 
+    @Schema(description = "Whether current user can modify project params")
     private boolean editable;
     @NotNull
     @Valid
+    @ArraySchema(arraySchema = @Schema(description = "List of all params for given project"))
     private List<ParamDto> params;
 
     public static ParamsDtoBuilder fromSecret(Secret secret) {

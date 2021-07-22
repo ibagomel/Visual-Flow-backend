@@ -19,6 +19,9 @@
 
 package by.iba.vfapi.dto.importing;
 
+import by.iba.vfapi.config.OpenApiConfig;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -32,7 +35,13 @@ import lombok.ToString;
 @Builder
 @EqualsAndHashCode
 @ToString
+@Schema(description = "DTO that contains jobs/pipelines that were not imported")
 public class ImportResponseDto {
+    // TODO normal ids or Kube ones
+    @ArraySchema(arraySchema = @Schema(description = "Ids of the jobs that were not imported"), schema =
+    @Schema(ref = OpenApiConfig.SCHEMA_KUBE_UUID_ONE))
     private final List<String> notImportedJobs;
+    @ArraySchema(arraySchema = @Schema(description = "Ids of the pipelines that were not imported"), schema =
+    @Schema(ref = OpenApiConfig.SCHEMA_KUBE_UUID_TWO))
     private final List<String> notImportedPipelines;
 }

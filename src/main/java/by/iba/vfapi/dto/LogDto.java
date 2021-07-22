@@ -19,6 +19,8 @@
 
 package by.iba.vfapi.dto;
 
+import by.iba.vfapi.config.OpenApiConfig;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.regex.Matcher;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -32,13 +34,16 @@ import lombok.ToString;
 @Builder
 @Getter
 @ToString
+@Schema(description = "DTO that represents a single log entry")
 public class LogDto {
     public static final int TIMESTAMP_GROUP_INDEX = 1;
     public static final int LEVEL_GROUP_INDEX = 2;
     public static final int MESSAGE_GROUP_INDEX = 3;
-
+    @Schema(format = "date-time")
     private final String timestamp;
+    @Schema(ref = OpenApiConfig.SCHEMA_LOG_LEVELS)
     private final String level;
+    @Schema(example = "dummy log message")
     private String message;
 
     /**

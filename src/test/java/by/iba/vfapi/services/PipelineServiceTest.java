@@ -24,7 +24,6 @@ import by.iba.vfapi.dto.pipelines.CronPipelineDto;
 import by.iba.vfapi.dto.pipelines.PipelineOverviewDto;
 import by.iba.vfapi.dto.pipelines.PipelineOverviewListDto;
 import by.iba.vfapi.dto.pipelines.PipelineResponseDto;
-import by.iba.vfapi.exceptions.ArgoClientException;
 import by.iba.vfapi.exceptions.BadRequestException;
 import by.iba.vfapi.model.argo.Arguments;
 import by.iba.vfapi.model.argo.CronWorkflow;
@@ -35,6 +34,7 @@ import by.iba.vfapi.model.argo.NodeStatus;
 import by.iba.vfapi.model.argo.Parameter;
 import by.iba.vfapi.model.argo.Template;
 import by.iba.vfapi.model.argo.Workflow;
+import by.iba.vfapi.model.argo.WorkflowSpec;
 import by.iba.vfapi.model.argo.WorkflowStatus;
 import by.iba.vfapi.model.argo.WorkflowTemplate;
 import by.iba.vfapi.model.argo.WorkflowTemplateSpec;
@@ -43,14 +43,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.argoproj.workflow.ApiException;
 import io.argoproj.workflow.apis.WorkflowServiceApi;
+import io.argoproj.workflow.models.WorkflowResumeRequest;
 import io.argoproj.workflow.models.WorkflowRetryRequest;
+import io.argoproj.workflow.models.WorkflowStopRequest;
+import io.argoproj.workflow.models.WorkflowSuspendRequest;
 import io.argoproj.workflow.models.WorkflowTerminateRequest;
 import io.fabric8.kubernetes.api.model.ConfigMap;
-import io.argoproj.workflow.models.WorkflowResumeRequest;
-import io.argoproj.workflow.models.WorkflowStopRequest;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.client.ResourceNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -63,6 +65,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static by.iba.vfapi.dto.Constants.NODE_TYPE_POD;
+import static by.iba.vfapi.services.K8sUtils.FAILED_STATUS;
+import static by.iba.vfapi.services.K8sUtils.RUNNING_STATUS;
+import static by.iba.vfapi.services.K8sUtils.SUSPENDED_STATUS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -190,7 +195,9 @@ class PipelineServiceTest {
             .status("Draft")
             .runnable(true)).definition(new ObjectMapper().readTree(GRAPH.toString().getBytes())).editable(true);
 
-        assertEquals(expected.getDefinition().toString(), pipelineService.getById("projectId", "id").getDefinition().toString(), "Pipeline must be equals to expected");
+        assertEquals(expected.getDefinition().toString(),
+                     pipelineService.getById("projectId", "id").getDefinition().toString(),
+                     "Pipeline must be equals to expected");
     }
 
     @Test
@@ -204,18 +211,22 @@ class PipelineServiceTest {
                                                            Base64.encodeBase64String(GRAPH.toString().getBytes()))
                                          .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
                                          .build());
+        DagTemplate dagTemplate = new DagTemplate();
+        dagTemplate.setTasks(List.of(new DagTask()
+                                         .arguments(new Arguments().addParametersItem(new Parameter()
+                                                                                          .name("graphId")
+                                                                                          .value("1")))
+                                         .name("pipeline")
+                                         .template("sparkTemplate"),
+                                     new DagTask()
+                                         .arguments(new Arguments().addParametersItem(new Parameter()
+                                                                                          .name("graphId")
+                                                                                          .value("2")))
+                                         .name("pipeline-2681521834")
+                                         .template("notificationTemplate")));
         workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
                                                                                   .name("dagTemplate")
-                                                                                  .dag(new DagTemplate().addTasksItem(
-                                                                                      new DagTask()
-                                                                                          .arguments(new Arguments()
-                                                                                                         .addParametersItem(
-                                                                                                             new Parameter()
-                                                                                                                 .name(
-                                                                                                                     "configMap")
-                                                                                                                 .value(
-                                                                                                                     "id1")))
-                                                                                          .name("name"))))));
+                                                                                  .dag(dagTemplate))));
         List<WorkflowTemplate> workflowTemplates = List.of(workflowTemplate);
         Workflow workflow = new Workflow();
         WorkflowStatus status = new WorkflowStatus();
@@ -238,19 +249,6 @@ class PipelineServiceTest {
                             .of(nodeStatus1, nodeStatus2)
                             .stream()
                             .collect(Collectors.toMap(NodeStatus::getDisplayName, ns -> ns)));
-        DagTemplate dagTemplate = new DagTemplate();
-        dagTemplate.setTasks(List.of(new DagTask()
-                                         .arguments(new Arguments().addParametersItem(new Parameter()
-                                                                                          .name("graphId")
-                                                                                          .value("1")))
-                                         .name("pipeline")
-                                         .template("sparkTemplate"),
-                                     new DagTask()
-                                         .arguments(new Arguments().addParametersItem(new Parameter()
-                                                                                          .name("graphId")
-                                                                                          .value("2")))
-                                         .name("pipeline-2681521834")
-                                         .template("notificationTemplate")));
         status.setStoredTemplates(Map.of("dagTemplate",
                                          new Template()
                                              .name(Constants.DAG_TEMPLATE_NAME)
@@ -294,6 +292,19 @@ class PipelineServiceTest {
     void testGetAllInProjectCron() {
         WorkflowTemplate workflowTemplate = new WorkflowTemplate();
 
+        DagTemplate dagTemplate = new DagTemplate();
+        dagTemplate.setTasks(List.of(new DagTask()
+                                         .arguments(new Arguments().addParametersItem(new Parameter()
+                                                                                          .name("graphId")
+                                                                                          .value("1")))
+                                         .name("pipeline")
+                                         .template("sparkTemplate"),
+                                     new DagTask()
+                                         .arguments(new Arguments().addParametersItem(new Parameter()
+                                                                                          .name("graphId")
+                                                                                          .value("2")))
+                                         .name("pipeline-2681521834")
+                                         .template("notificationTemplate")));
         workflowTemplate.setMetadata(new ObjectMetaBuilder()
                                          .withName("id1")
                                          .addToLabels(Constants.NAME, "name1")
@@ -303,16 +314,7 @@ class PipelineServiceTest {
                                          .build());
         workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
                                                                                   .name("dagTemplate")
-                                                                                  .dag(new DagTemplate().addTasksItem(
-                                                                                      new DagTask()
-                                                                                          .arguments(new Arguments()
-                                                                                                         .addParametersItem(
-                                                                                                             new Parameter()
-                                                                                                                 .name(
-                                                                                                                     "configMap")
-                                                                                                                 .value(
-                                                                                                                     "id1")))
-                                                                                          .name("name"))))));
+                                                                                  .dag(dagTemplate))));
 
         List<WorkflowTemplate> workflowTemplates = List.of(workflowTemplate);
         Workflow workflow = new Workflow();
@@ -337,19 +339,6 @@ class PipelineServiceTest {
                             .of(nodeStatus1, nodeStatus2)
                             .stream()
                             .collect(Collectors.toMap(NodeStatus::getDisplayName, ns -> ns)));
-        DagTemplate dagTemplate = new DagTemplate();
-        dagTemplate.setTasks(List.of(new DagTask()
-                                         .arguments(new Arguments().addParametersItem(new Parameter()
-                                                                                          .name("graphId")
-                                                                                          .value("1")))
-                                         .name("pipeline")
-                                         .template("sparkTemplate"),
-                                     new DagTask()
-                                         .arguments(new Arguments().addParametersItem(new Parameter()
-                                                                                          .name("graphId")
-                                                                                          .value("2")))
-                                         .name("pipeline-2681521834")
-                                         .template("notificationTemplate")));
         status.setStoredTemplates(Map.of("dagTemplate",
                                          new Template()
                                              .name(Constants.DAG_TEMPLATE_NAME)
@@ -512,99 +501,175 @@ class PipelineServiceTest {
     }
 
     @Test
-    void testStop()  {
-        doNothing().when(argoKubernetesService).deleteWorkflow(anyString(), anyString());
+    void testSuspend() throws ApiException {
         WorkflowTemplate workflowTemplate = new WorkflowTemplate();
         workflowTemplate.setMetadata(new ObjectMetaBuilder()
                                          .withName("id")
                                          .addToLabels(Constants.NAME, "name")
                                          .addToAnnotations(Constants.DEFINITION,
                                                            Base64.encodeBase64String(GRAPH.toString().getBytes()))
-                                         .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
-                                         .build());
-        workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
-                                                                                  .name("dagTemplate")
-                                                                                  .dag(new DagTemplate().addTasksItem(
-                                                                                      new DagTask())))));
-        Workflow workflow = new Workflow();
-        WorkflowStatus status = new WorkflowStatus();
-        status.setFinishedAt(DateTime.parse("2020-10-27T10:14:46Z"));
-        status.setStartedAt(DateTime.parse("2020-10-27T10:14:46Z"));
-        status.setPhase("Running");
-        NodeStatus nodeStatus1 = new NodeStatus();
-        nodeStatus1.setDisplayName("pipeline");
-        nodeStatus1.setPhase("Running");
-        nodeStatus1.setFinishedAt(DateTime.parse("2021-10-28T07:37:46Z"));
-        nodeStatus1.setTemplateName("sparkTemplate");
-        nodeStatus1.setType(NODE_TYPE_POD);
-        NodeStatus nodeStatus2 = new NodeStatus();
-        nodeStatus2.setDisplayName("pipeline-2681521834");
-        nodeStatus2.setPhase("Pending");
-        nodeStatus2.setFinishedAt(DateTime.parse("2021-10-28T07:37:46Z"));
-        nodeStatus2.setTemplateName("notificationTemplate");
-        nodeStatus2.setType(NODE_TYPE_POD);
-        status.setNodes(List
-                            .of(nodeStatus1, nodeStatus2)
-                            .stream()
-                            .collect(Collectors.toMap(NodeStatus::getDisplayName, ns -> ns)));
-        DagTemplate dagTemplate = new DagTemplate();
-        dagTemplate.setTasks(List.of(new DagTask()
-                                         .arguments(new Arguments().addParametersItem(new Parameter()
-                                                                                          .name("graphId")
-                                                                                          .value("1")))
-                                         .name("pipeline")
-                                         .template("sparkTemplate"),
-                                     new DagTask()
-                                         .arguments(new Arguments().addParametersItem(new Parameter()
-                                                                                          .name("graphId")
-                                                                                          .value("2")))
-                                         .name("pipeline-2681521834")
-                                         .template("notificationTemplate")));
-        status.setStoredTemplates(Map.of("dagTemplate",
-                                         new Template()
-                                             .name(Constants.DAG_TEMPLATE_NAME)
-                                             .dag(dagTemplate)
-                                             .name("dagTemplate"),
-                                         "notificationTemplate",
-                                         new Template().name(PipelineService.NOTIFICATION_TEMPLATE_NAME),
-                                         "sparkTemplate",
-                                         new Template().name(PipelineService.SPARK_TEMPLATE_NAME)));
-        workflow.setStatus(status);
-        when(argoKubernetesService.getWorkflowTemplate(anyString(), anyString())).thenReturn(workflowTemplate);
-        when(argoKubernetesService.getWorkflow(anyString(), anyString())).thenReturn(workflow);
-        pipelineService.stop(anyString(), anyString());
-        verify(argoKubernetesService).deleteWorkflow(anyString(), anyString());
-    }
-
-    @Test
-    void testStopFailure() throws ResourceNotFoundException {
-        when(argoKubernetesService.getWorkflow(anyString(), anyString())).thenThrow(ResourceNotFoundException.class);
-        assertThrows(ResourceNotFoundException.class,
-                     () -> pipelineService.stop(anyString(), anyString()),
-                     "Expected exception must be thrown");
-        verify(argoKubernetesService).getWorkflow(anyString(), anyString());
-    }
-
-    @Test
-    void testResume() {
-        doNothing().when(argoKubernetesService).createOrReplaceWorkflow(eq("projectId"), any(Workflow.class));
-        doNothing().when(argoKubernetesService).createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
-
-        WorkflowTemplate workflowTemplate = new WorkflowTemplate();
-        workflowTemplate.setMetadata(new ObjectMetaBuilder()
-                                         .withName("id")
-                                         .addToLabels(Constants.NAME, "name")
-                                         .addToAnnotations(Constants.DEFINITION,
-                                                           Base64.encodeBase64String(GRAPH.toString().getBytes()))
-                                         .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
-                                         .addToAnnotations(Constants.STOPPED_AT, "stoppedHere")
                                          .build());
         workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
                                                                                   .name(Constants.DAG_TEMPLATE_NAME)
                                                                                   .dag(new DagTemplate()))));
-        when(argoKubernetesService.getWorkflowTemplate(anyString(), anyString())).thenReturn(workflowTemplate);
+        when(argoKubernetesService.getWorkflowTemplate("projectId", "id")).thenReturn(workflowTemplate);
+        WorkflowStatus status = new WorkflowStatus();
+        status.setPhase("Running");
+        Workflow workflow = new Workflow();
+        workflow.setStatus(status);
+        status.setStartedAt(DateTime.now());
+        status.setFinishedAt(DateTime.now());
+        status.setProgress("0/2");
+        WorkflowSpec spec = new WorkflowSpec();
+        spec.setSuspend(false);
+        spec.setTemplates(new ArrayList<>());
+        workflow.setSpec(spec);
+        when(argoKubernetesService.getWorkflow("projectId", "id")).thenReturn(workflow);
+        pipelineService.suspend("projectId", "id");
+        verify(apiInstance).workflowServiceSuspendWorkflow("projectId", "id", new WorkflowSuspendRequest());
+    }
+
+    @Test
+    void testSuspendFailure() throws ResourceNotFoundException {
+        WorkflowTemplate workflowTemplate = new WorkflowTemplate();
+        workflowTemplate.setMetadata(new ObjectMetaBuilder()
+                                         .withName("id")
+                                         .addToLabels(Constants.NAME, "name")
+                                         .addToAnnotations(Constants.DEFINITION,
+                                                           Base64.encodeBase64String(GRAPH.toString().getBytes()))
+                                         .build());
+        workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
+                                                                                  .name(Constants.DAG_TEMPLATE_NAME)
+                                                                                  .dag(new DagTemplate()))));
+        when(argoKubernetesService.getWorkflowTemplate("projectId", "id")).thenReturn(workflowTemplate);
+        WorkflowStatus status = new WorkflowStatus();
+        status.setPhase("Running");
+        Workflow workflow = new Workflow();
+        workflow.setStatus(status);
+        status.setStartedAt(DateTime.now());
+        status.setFinishedAt(DateTime.now());
+        status.setProgress("0/2");
+        WorkflowSpec spec = new WorkflowSpec();
+        spec.setSuspend(true);
+        spec.setTemplates(new ArrayList<>());
+        workflow.setSpec(spec);
+        when(argoKubernetesService.getWorkflow("projectId", "id")).thenReturn(workflow);
+        assertThrows(BadRequestException.class,
+                     () -> pipelineService.suspend("projectId", "id"),
+                     "Expected exception must be thrown");
+    }
+
+    @Test
+    void testResume() throws ApiException {
+        WorkflowTemplate workflowTemplate = new WorkflowTemplate();
+        workflowTemplate.setMetadata(new ObjectMetaBuilder()
+                                         .withName("id")
+                                         .addToLabels(Constants.NAME, "name")
+                                         .addToAnnotations(Constants.DEFINITION,
+                                                           Base64.encodeBase64String(GRAPH.toString().getBytes()))
+                                         .build());
+        workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
+                                                                                  .name(Constants.DAG_TEMPLATE_NAME)
+                                                                                  .dag(new DagTemplate()))));
+        when(argoKubernetesService.getWorkflowTemplate("projectId", "id")).thenReturn(workflowTemplate);
+        WorkflowStatus status = new WorkflowStatus();
+        status.setPhase(SUSPENDED_STATUS);
+        Workflow workflow = new Workflow();
+        workflow.setStatus(status);
+        status.setStartedAt(DateTime.now());
+        status.setFinishedAt(DateTime.now());
+        status.setProgress("0/2");
+        WorkflowSpec spec = new WorkflowSpec();
+        spec.setSuspend(true);
+        spec.setTemplates(new ArrayList<>());
+        workflow.setSpec(spec);
+        when(argoKubernetesService.getWorkflow("projectId", "id")).thenReturn(workflow);
         pipelineService.resume("projectId", "id");
-        verify(argoKubernetesService).createOrReplaceWorkflow(eq("projectId"), any(Workflow.class));
+        verify(apiInstance).workflowServiceResumeWorkflow("projectId", "id", new WorkflowResumeRequest());
+    }
+
+    @Test
+    void testStop() throws ApiException {
+        WorkflowTemplate workflowTemplate = new WorkflowTemplate();
+        workflowTemplate.setMetadata(new ObjectMetaBuilder()
+                                         .withName("id")
+                                         .addToLabels(Constants.NAME, "name")
+                                         .addToAnnotations(Constants.DEFINITION,
+                                                           Base64.encodeBase64String(GRAPH.toString().getBytes()))
+                                         .build());
+        workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
+                                                                                  .name(Constants.DAG_TEMPLATE_NAME)
+                                                                                  .dag(new DagTemplate()))));
+        when(argoKubernetesService.getWorkflowTemplate("projectId", "id")).thenReturn(workflowTemplate);
+        WorkflowStatus status = new WorkflowStatus();
+        Workflow workflow = new Workflow();
+        workflow.setStatus(status);
+        status.setStartedAt(DateTime.now());
+        status.setFinishedAt(DateTime.now());
+        status.setProgress("0/2");
+        status.setPhase(RUNNING_STATUS);
+        WorkflowSpec spec = new WorkflowSpec();
+        spec.setTemplates(new ArrayList<>());
+        workflow.setSpec(spec);
+        when(argoKubernetesService.getWorkflow("projectId", "id")).thenReturn(workflow);
+        pipelineService.stop("projectId", "id");
+        verify(apiInstance).workflowServiceStopWorkflow("projectId", "id", new WorkflowStopRequest());
+    }
+
+    @Test
+    void testTerminate() throws ApiException {
+        WorkflowTemplate workflowTemplate = new WorkflowTemplate();
+        workflowTemplate.setMetadata(new ObjectMetaBuilder()
+                                         .withName("id")
+                                         .addToLabels(Constants.NAME, "name")
+                                         .addToAnnotations(Constants.DEFINITION,
+                                                           Base64.encodeBase64String(GRAPH.toString().getBytes()))
+                                         .build());
+        workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
+                                                                                  .name(Constants.DAG_TEMPLATE_NAME)
+                                                                                  .dag(new DagTemplate()))));
+        when(argoKubernetesService.getWorkflowTemplate("projectId", "id")).thenReturn(workflowTemplate);
+        WorkflowStatus status = new WorkflowStatus();
+        Workflow workflow = new Workflow();
+        workflow.setStatus(status);
+        status.setStartedAt(DateTime.now());
+        status.setFinishedAt(DateTime.now());
+        status.setProgress("0/2");
+        status.setPhase(RUNNING_STATUS);
+        WorkflowSpec spec = new WorkflowSpec();
+        spec.setTemplates(new ArrayList<>());
+        workflow.setSpec(spec);
+        when(argoKubernetesService.getWorkflow("projectId", "id")).thenReturn(workflow);
+        pipelineService.terminate("projectId", "id");
+        verify(apiInstance).workflowServiceTerminateWorkflow("projectId", "id", new WorkflowTerminateRequest());
+    }
+
+    @Test
+    void testRetry() throws ApiException {
+        WorkflowTemplate workflowTemplate = new WorkflowTemplate();
+        workflowTemplate.setMetadata(new ObjectMetaBuilder()
+                                         .withName("id")
+                                         .addToLabels(Constants.NAME, "name")
+                                         .addToAnnotations(Constants.DEFINITION,
+                                                           Base64.encodeBase64String(GRAPH.toString().getBytes()))
+                                         .build());
+        workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
+                                                                                  .name(Constants.DAG_TEMPLATE_NAME)
+                                                                                  .dag(new DagTemplate()))));
+        when(argoKubernetesService.getWorkflowTemplate("projectId", "id")).thenReturn(workflowTemplate);
+        WorkflowStatus status = new WorkflowStatus();
+        Workflow workflow = new Workflow();
+        workflow.setStatus(status);
+        status.setStartedAt(DateTime.now());
+        status.setFinishedAt(DateTime.now());
+        status.setProgress("0/2");
+        status.setPhase(FAILED_STATUS);
+        WorkflowSpec spec = new WorkflowSpec();
+        spec.setTemplates(new ArrayList<>());
+        workflow.setSpec(spec);
+        when(argoKubernetesService.getWorkflow("projectId", "id")).thenReturn(workflow);
+        pipelineService.retry("projectId", "id");
+        verify(apiInstance).workflowServiceRetryWorkflow("projectId", "id", new WorkflowRetryRequest());
     }
 
     @Test

@@ -19,10 +19,12 @@
 
 package by.iba.vfapi.dto.projects;
 
+import by.iba.vfapi.config.OpenApiConfig;
 import by.iba.vfapi.dto.Constants;
 import by.iba.vfapi.exceptions.BadRequestException;
 import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.ResourceQuotaBuilder;
+import io.swagger.v3.oas.annotations.media.Schema;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Positive;
 import lombok.Builder;
@@ -39,18 +41,23 @@ import lombok.ToString;
 @Builder(toBuilder = true)
 @EqualsAndHashCode
 @ToString
+@Schema(description = "DTO to represent quota information")
 public class ResourceQuotaRequestDto {
     @NotNull
     @Positive
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_LIMIT_CPU)
     private Float limitsCpu;
     @NotNull
     @Positive
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_REQUIRE_CPU)
     private Float requestsCpu;
     @NotNull
     @Positive
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_LIMIT_MEMORY)
     private Float limitsMemory;
     @NotNull
     @Positive
+    @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_REQUIRE_MEMORY)
     private Float requestsMemory;
 
     /**
