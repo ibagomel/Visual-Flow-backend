@@ -32,6 +32,9 @@ server:
       enabled: true                               # tomcat access log to track down each request
   servlet:
     context-path: ${BASE_PATH}                    # defines the base path to access the app
+  error:                                          # enables the display of custom messages in server responses
+      include-message: always
+      include-binding-errors: always
 # See documentation about configuring authentication at this link: https://github.com/ibagomel/Visual-Flow-deploy/blob/main/OAUTH.md
 oauth:
   url:

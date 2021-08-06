@@ -20,12 +20,14 @@
 package by.iba.vfapi.config.security;
 
 import by.iba.vfapi.config.SuperusersConfig;
-import by.iba.vfapi.exceptions.InternalProcessingException;
+import by.iba.vfapi.exceptions.BadRequestException;
 import by.iba.vfapi.model.auth.UserInfo;
 import by.iba.vfapi.services.KubernetesService;
 import by.iba.vfapi.services.auth.AuthenticationService;
 import by.iba.vfapi.services.auth.OAuthService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -33,6 +35,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.core.AuthenticationException;
@@ -91,7 +94,7 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
                 UserInfo userInfo = oauthService.getUserInfoByToken(token);
                 userInfo.setSuperuser(superusers.contains(userInfo.getUsername()));
                 if (!userInfo.hasAllInformation()) {
-                    throw new InternalProcessingException("User information doesn't contain all necessary data");
+                    throw new BadRequestException("User information doesn't contain all necessary data");
                 }
 
                 kubernetesService.createIfNotExistServiceAccount(userInfo);
@@ -102,6 +105,9 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
         } catch (AuthenticationException e) {
             LOGGER.error("Authentication exception", e);
             httpServletResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        } catch (BadRequestException e) {
+            LOGGER.error("Cannot authenticate user", e);
+            httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
         }
     }
 }

@@ -34,12 +34,12 @@ import by.iba.vfapi.model.argo.WorkflowTemplateSpec;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
-import io.fabric8.kubernetes.client.utils.Serialization;
+import io.fabric8.kubernetes.client.CustomResource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.stream.Collectors;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.SerializationUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -141,11 +141,13 @@ class TransferServiceTest {
 
         ExportResponseDto expected = ExportResponseDto
             .builder()
-            .jobs(Set.of(Serialization.asJson(configMap1), Serialization.asJson(configMap2)))
-            .pipelines(Set.of(Serialization.asJson(workflowTemplate)))
+            .jobs(Set.of(configMap1, configMap2))
+            .pipelines(Set.of(workflowTemplate))
             .build();
 
-        assertEquals(expected, exporting);
+        assertEquals(expected.getJobs(), exporting.getJobs());
+        assertEquals(expected.getPipelines().stream().map(CustomResource::getSpec).collect(Collectors.toList()),
+                     exporting.getPipelines().stream().map(CustomResource::getSpec).collect(Collectors.toList()));
     }
 
     @Test
@@ -252,14 +254,11 @@ class TransferServiceTest {
             .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
 
 
-        ImportResponseDto importing =
-            transferService.importing("projectId",
-                                      new TreeSet<>(Set.of(Serialization.asJson(configMap1),
-                                                           Serialization.asJson(configMap2),
-                                                           Serialization.asJson(configMap3))),
-                                      new TreeSet<>(Set.of(Serialization.asJson(workflowTemplate1),
-                                                           Serialization.asJson(workflowTemplate2),
-                                                           Serialization.asJson(workflowTemplate3))));
+        ImportResponseDto importing = transferService.importing("projectId",
+                                                                Set.of(configMap1, configMap2, configMap3),
+                                                                Set.of(workflowTemplate1,
+                                                                       workflowTemplate2,
+                                                                       workflowTemplate3));
 
         ImportResponseDto expected = ImportResponseDto
             .builder()
@@ -273,8 +272,8 @@ class TransferServiceTest {
     @Test
     void testCheckAccess() {
         String projectId = "projectId";
-        when(argoKubernetesService.isAccessible(projectId, "configmaps", "", Constants.CREATE_ACTION)).thenReturn(
-            true);
+        when(argoKubernetesService.isAccessible(projectId, "configmaps", "", Constants.CREATE_ACTION))
+            .thenReturn(true);
         assertTrue(transferService.checkImportAccess(projectId));
         verify(argoKubernetesService).isAccessible(anyString(), anyString(), anyString(), anyString());
     }
@@ -348,32 +347,28 @@ class TransferServiceTest {
 
         for (ConfigMap wf : List.of(configMap2, configMap3)) {
             ConfigMap original = SerializationUtils.clone(configMap1);
-            when(argoKubernetesService.getConfigMap("projectId", original.getMetadata().getName())).thenReturn(
-                original);
+            when(argoKubernetesService.getConfigMap("projectId", original.getMetadata().getName()))
+                .thenReturn(original);
             transferService.copyJob("projectId", original.getMetadata().getName());
-            assertEquals(
-                wf.getMetadata().getLabels().get(Constants.NAME),
-                original.getMetadata().getLabels().get(Constants.NAME),
-                "Copy suffix should be exactly the same");
-            assertNotEquals(
-                wf.getMetadata().getName(),
-                original.getMetadata().getName(),
-                "Ids should be different");
+            assertEquals(wf.getMetadata().getLabels().get(Constants.NAME),
+                         original.getMetadata().getLabels().get(Constants.NAME),
+                         "Copy suffix should be exactly the same");
+            assertNotEquals(wf.getMetadata().getName(),
+                            original.getMetadata().getName(),
+                            "Ids should be different");
             configMaps.add(wf);
         }
         configMaps.remove(1);
         ConfigMap original = SerializationUtils.clone(configMap1);
-        when(argoKubernetesService.getConfigMap("projectId", original.getMetadata().getName())).thenReturn(
-            original);
+        when(argoKubernetesService.getConfigMap("projectId", original.getMetadata().getName()))
+            .thenReturn(original);
         transferService.copyJob("projectId", original.getMetadata().getName());
-        assertEquals(
-            configMap4.getMetadata().getLabels().get(Constants.NAME),
-            original.getMetadata().getLabels().get(Constants.NAME),
-            "Copy suffix should be exactly the same even after deletion");
-        assertNotEquals(
-            configMap4.getMetadata().getName(),
-            original.getMetadata().getName(),
-            "Ids should be different even after deletion");
+        assertEquals(configMap4.getMetadata().getLabels().get(Constants.NAME),
+                     original.getMetadata().getLabels().get(Constants.NAME),
+                     "Copy suffix should be exactly the same even after deletion");
+        assertNotEquals(configMap4.getMetadata().getName(),
+                        original.getMetadata().getName(),
+                        "Ids should be different even after deletion");
         configMaps.add(configMap4);
     }
 
@@ -440,17 +435,15 @@ class TransferServiceTest {
 
         for (WorkflowTemplate wf : List.of(workflowTemplate2, workflowTemplate3)) {
             WorkflowTemplate original = SerializationUtils.clone(workflowTemplate1);
-            when(argoKubernetesService.getWorkflowTemplate("projectId",
-                                                           original.getMetadata().getName())).thenReturn(original);
+            when(argoKubernetesService.getWorkflowTemplate("projectId", original.getMetadata().getName()))
+                .thenReturn(original);
             transferService.copyPipeline("projectId", original.getMetadata().getName());
-            assertEquals(
-                wf.getMetadata().getLabels().get(Constants.NAME),
-                original.getMetadata().getLabels().get(Constants.NAME),
-                "Copy suffix should be exactly the same");
-            assertNotEquals(
-                wf.getMetadata().getName(),
-                original.getMetadata().getName(),
-                "Ids should be different");
+            assertEquals(wf.getMetadata().getLabels().get(Constants.NAME),
+                         original.getMetadata().getLabels().get(Constants.NAME),
+                         "Copy suffix should be exactly the same");
+            assertNotEquals(wf.getMetadata().getName(),
+                            original.getMetadata().getName(),
+                            "Ids should be different");
             workflowTemplates.add(wf);
         }
 

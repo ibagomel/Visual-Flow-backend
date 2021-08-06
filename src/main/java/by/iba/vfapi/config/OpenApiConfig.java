@@ -49,6 +49,7 @@ import static by.iba.vfapi.services.K8sUtils.ERROR_STATUS;
 import static by.iba.vfapi.services.K8sUtils.FAILED_STATUS;
 import static by.iba.vfapi.services.K8sUtils.PENDING_STATUS;
 import static by.iba.vfapi.services.K8sUtils.RUNNING_STATUS;
+import static by.iba.vfapi.services.K8sUtils.STOPPED_STATUS;
 import static by.iba.vfapi.services.K8sUtils.SUCCEEDED_STATUS;
 import static by.iba.vfapi.services.K8sUtils.SUSPENDED_STATUS;
 import static by.iba.vfapi.services.K8sUtils.TERMINATED_STATUS;
@@ -363,6 +364,7 @@ public class OpenApiConfig {
                                             .addEnumItem(DRAFT_STATUS)
                                             .addEnumItem(TERMINATED_STATUS)
                                             .addEnumItem(SUSPENDED_STATUS)
+                                            .addEnumItem(STOPPED_STATUS)
                                             .description(
                                                 "Status is determined based on Workflow's phase, plus there are " +
                                                     "couple custom ones"))

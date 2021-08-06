@@ -34,7 +34,6 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.client.ResourceNotFoundException;
-import io.fabric8.kubernetes.client.utils.Serialization;
 import java.time.ZonedDateTime;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -70,8 +69,8 @@ public class TransferService {
      * @param jobIds    jobs ids to export
      * @return list of jsons
      */
-    private Set<String> exportJobs(final String projectId, final Set<String> jobIds) {
-        Set<String> exportedJobs = Sets.newHashSetWithExpectedSize(jobIds.size());
+    private Set<ConfigMap> exportJobs(final String projectId, final Set<String> jobIds) {
+        Set<ConfigMap> exportedJobs = Sets.newHashSetWithExpectedSize(jobIds.size());
         for (String jobId : jobIds) {
             ConfigMap configMap = argoKubernetesService.getConfigMap(projectId, jobId);
             ObjectMeta metadata = configMap.getMetadata();
@@ -83,7 +82,7 @@ public class TransferService {
                                   .build())
                 .withData(configMap.getData())
                 .build();
-            exportedJobs.add(Serialization.asJson(configMapForExport));
+            exportedJobs.add(configMapForExport);
         }
 
         return exportedJobs;
@@ -114,7 +113,7 @@ public class TransferService {
                                                       .build());
             workflowTemplateForExport.setSpec(spec);
             PipelinesWithRelatedJobs pipelinesWithRelatedJobs =
-                new PipelinesWithRelatedJobs(Serialization.asJson(workflowTemplateForExport));
+                new PipelinesWithRelatedJobs(workflowTemplateForExport);
 
             if (pipeline.isWithRelatedJobs()) {
                 List<String> jobIds = PipelineService
@@ -145,10 +144,9 @@ public class TransferService {
      * @param jsonJobs  jsonJobs for import
      * @return list with not imported jobs ids
      */
-    private List<String> importJobs(final String projectId, final Set<String> jsonJobs) {
+    private List<String> importJobs(final String projectId, final Set<ConfigMap> jsonJobs) {
         List<String> notImported = new LinkedList<>();
-        for (String jsonJob : jsonJobs) {
-            ConfigMap configMap = Serialization.unmarshal(jsonJob, ConfigMap.class);
+        for (ConfigMap configMap : jsonJobs) {
             String id = configMap.getMetadata().getName();
             String name = configMap.getMetadata().getLabels().get(Constants.NAME);
             configMap
@@ -174,11 +172,10 @@ public class TransferService {
      * @param jsonPipelines jsonPipelines for import
      * @return list with not imported pipelines ids
      */
-    private List<String> importPipelines(final String projectId, final Set<String> jsonPipelines) {
+    private List<String> importPipelines(final String projectId, final Set<WorkflowTemplate> jsonPipelines) {
         List<String> notImported = new LinkedList<>();
 
-        for (String jsonPipeline : jsonPipelines) {
-            WorkflowTemplate workflowTemplate = Serialization.unmarshal(jsonPipeline, WorkflowTemplate.class);
+        for (WorkflowTemplate workflowTemplate : jsonPipelines) {
             String name = workflowTemplate.getMetadata().getLabels().get(Constants.NAME);
             String id = workflowTemplate.getMetadata().getName();
             workflowTemplate
@@ -213,7 +210,7 @@ public class TransferService {
         Set<PipelinesWithRelatedJobs> pipelinesWithRelatedJobs = exportPipelines(projectId, pipelines);
 
         Set<String> jobsWithPipelineJobsIds = new HashSet<>(jobIds);
-        Set<String> exportedPipelines = new HashSet<>();
+        Set<WorkflowTemplate> exportedPipelines = new HashSet<>();
 
         pipelinesWithRelatedJobs.forEach((PipelinesWithRelatedJobs pipelineWithRelatedJobs) -> {
             jobsWithPipelineJobsIds.addAll(pipelineWithRelatedJobs.getRelatedJobIds());
@@ -235,7 +232,8 @@ public class TransferService {
      * @param jsonPipelines pipelines in json format
      * @return not imported pipelines and jobs ids
      */
-    public ImportResponseDto importing(String projectId, Set<String> jsonJobs, Set<String> jsonPipelines) {
+    public ImportResponseDto importing(
+        String projectId, Set<ConfigMap> jsonJobs, Set<WorkflowTemplate> jsonPipelines) {
         List<String> notImportedJobs = importJobs(projectId, jsonJobs);
         List<String> notImportedPipelines = importPipelines(projectId, jsonPipelines);
 

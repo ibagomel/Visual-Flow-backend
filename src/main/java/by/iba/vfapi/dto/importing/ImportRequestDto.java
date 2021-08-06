@@ -19,6 +19,8 @@
 
 package by.iba.vfapi.dto.importing;
 
+import by.iba.vfapi.model.argo.WorkflowTemplate;
+import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
@@ -39,8 +41,8 @@ import lombok.Setter;
 public class ImportRequestDto {
     @NotNull
     @ArraySchema(arraySchema = @Schema(description = "List of pipelines' structures"))
-    private List<String> pipelines;
+    private List<WorkflowTemplate> pipelines;
     @NotNull
     @ArraySchema(arraySchema = @Schema(description = "List of jobs' structures"))
-    private List<String> jobs;
+    private List<ConfigMap> jobs;
 }

@@ -25,7 +25,9 @@ import by.iba.vfapi.dto.importing.ImportAccessDto;
 import by.iba.vfapi.dto.importing.ImportRequestDto;
 import by.iba.vfapi.dto.importing.ImportResponseDto;
 import by.iba.vfapi.exceptions.BadRequestException;
+import by.iba.vfapi.model.argo.WorkflowTemplate;
 import by.iba.vfapi.services.TransferService;
+import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.HashSet;
@@ -76,8 +78,8 @@ public class TransferController {
     @PostMapping("{projectId}/importResources")
     public ImportResponseDto importing(
         @PathVariable String projectId, @RequestBody @Valid ImportRequestDto importRequestDto) {
-        Set<String> jobs = new HashSet<>(importRequestDto.getJobs());
-        Set<String> pipelines = new HashSet<>(importRequestDto.getPipelines());
+        Set<ConfigMap> jobs = new HashSet<>(importRequestDto.getJobs());
+        Set<WorkflowTemplate> pipelines = new HashSet<>(importRequestDto.getPipelines());
         if (jobs.size() != importRequestDto.getJobs().size()) {
             throw new BadRequestException("Jobs not unique");
         }

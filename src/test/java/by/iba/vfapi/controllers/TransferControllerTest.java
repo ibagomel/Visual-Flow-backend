@@ -19,12 +19,19 @@
 
 package by.iba.vfapi.controllers;
 
+import by.iba.vfapi.dto.Constants;
 import by.iba.vfapi.dto.exporting.ExportRequestDto;
 import by.iba.vfapi.dto.exporting.ExportResponseDto;
 import by.iba.vfapi.dto.importing.ImportRequestDto;
 import by.iba.vfapi.dto.importing.ImportResponseDto;
 import by.iba.vfapi.exceptions.BadRequestException;
+import by.iba.vfapi.model.argo.DagTemplate;
+import by.iba.vfapi.model.argo.Template;
+import by.iba.vfapi.model.argo.WorkflowTemplate;
+import by.iba.vfapi.model.argo.WorkflowTemplateSpec;
 import by.iba.vfapi.services.TransferService;
+import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -36,7 +43,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,63 +56,68 @@ class TransferControllerTest {
 
     @Test
     void testExporting() {
+        ConfigMap configMap = new ConfigMap();
+        WorkflowTemplate workflowTemplate = new WorkflowTemplate();
         when(transferService.exporting("projectId",
                                        Set.of("jobId1", "jobId2"),
-                                       Set.of(new ExportRequestDto.PipelineRequest("pipelineId1",
-                                                                                   true)))).thenReturn(
-            ExportResponseDto
-                .builder()
-                .jobs(Set.of("jobId1Json",
-                             "jobId2Json",
-                             "pipelineId1RelatedJob1Json"))
-                .pipelines(Set.of("pipelineId1Json"))
-                .build());
+                                       Set.of(new ExportRequestDto.PipelineRequest("pipelineId1", true))))
+            .thenReturn(ExportResponseDto
+                            .builder()
+                            .jobs(Set.of(configMap))
+                            .pipelines(Set.of(workflowTemplate))
+                            .build());
 
         ExportResponseDto response = transferController.exporting("projectId",
                                                                   new ExportRequestDto(Set.of("jobId1", "jobId2"),
                                                                                        Set.of(new ExportRequestDto.PipelineRequest(
                                                                                            "pipelineId1",
                                                                                            true))));
-        ExportResponseDto exportResponseDto = ExportResponseDto
-            .builder()
-            .jobs(Set.of("jobId1Json", "jobId2Json", "pipelineId1RelatedJob1Json"))
-            .pipelines(Set.of("pipelineId1Json"))
-            .build();
+        ExportResponseDto exportResponseDto =
+            ExportResponseDto.builder().jobs(Set.of(configMap)).pipelines(Set.of(workflowTemplate)).build();
 
         assertEquals(exportResponseDto, response);
     }
 
     @Test
     void testImporting() {
-        when(transferService.importing("projectId",
-                                       Set.of("JobForImport1", "JobForImport2"),
-                                       Set.of("PipelineForImport1"))).thenReturn(ImportResponseDto
-                                                                                     .builder()
-                                                                                     .notImportedJobs(List.of())
-                                                                                     .notImportedPipelines(List.of())
-                                                                                     .build());
+        ConfigMap e1 = new ConfigMap();
+        Set<ConfigMap> jsonJobs = Set.of(e1);
+        WorkflowTemplate e11 = new WorkflowTemplate();
+        Set<WorkflowTemplate> jsonPipelines = Set.of(e11);
+        when(transferService.importing("projectId", jsonJobs, jsonPipelines))
+            .thenReturn(ImportResponseDto
+                            .builder()
+                            .notImportedJobs(List.of())
+                            .notImportedPipelines(List.of())
+                            .build());
 
-        ImportResponseDto importing = transferController.importing("projectId",
-                                                                   new ImportRequestDto(List.of(
-                                                                       "PipelineForImport1"),
-                                                                                        List.of("JobForImport1",
-                                                                                                "JobForImport2")));
+        ImportResponseDto importing =
+            transferController.importing("projectId", new ImportRequestDto(List.of(e11), List.of(e1)));
 
         ImportResponseDto expected =
             ImportResponseDto.builder().notImportedJobs(List.of()).notImportedPipelines(List.of()).build();
         assertEquals(expected, importing);
-        verify(transferService).importing(anyString(), anySet(), anySet());
+        verify(transferService).importing("projectId", jsonJobs, jsonPipelines);
     }
 
     @Test
     void testImportingNotUniqueJobs() {
-        ImportRequestDto dto = new ImportRequestDto(List.of(), List.of("JobForImport", "JobForImport"));
+        ImportRequestDto dto = new ImportRequestDto(List.of(), List.of(new ConfigMap(), new ConfigMap()));
         assertThrows(BadRequestException.class, () -> transferController.importing("projectId", dto));
     }
 
     @Test
     void testImportingNotUniquePipelines() {
-        ImportRequestDto dto = new ImportRequestDto(List.of("PipelineForImport", "PipelineForImport"), List.of());
+        WorkflowTemplate workflowTemplate = new WorkflowTemplate();
+        workflowTemplate.setMetadata(new ObjectMetaBuilder()
+                                         .withName("id")
+                                         .addToLabels(Constants.NAME, "name")
+                                         .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
+                                         .build());
+        workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
+                                                                                  .name(Constants.DAG_TEMPLATE_NAME)
+                                                                                  .dag(new DagTemplate()))));
+        ImportRequestDto dto = new ImportRequestDto(List.of(workflowTemplate, workflowTemplate), List.of());
         assertThrows(BadRequestException.class, () -> transferController.importing("projectId", dto));
     }
 

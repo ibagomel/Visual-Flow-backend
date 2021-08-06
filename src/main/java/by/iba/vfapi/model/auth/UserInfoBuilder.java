@@ -19,6 +19,7 @@
 
 package by.iba.vfapi.model.auth;
 
+import by.iba.vfapi.exceptions.BadRequestException;
 import by.iba.vfapi.exceptions.ConfigurationException;
 import by.iba.vfapi.exceptions.InternalProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -81,7 +82,7 @@ public final class UserInfoBuilder {
         @NotNull JsonNode values) {
         List.of(idParam, userNameParam, nameParam, emailParam).forEach((String fieldName) -> {
             if (!paramExists(fieldName, values)) {
-                throw new InternalProcessingException("Required user field is either missing or null - " +
+                throw new BadRequestException("Required user field is either missing or null - " +
                                                           fieldName);
             }
         });

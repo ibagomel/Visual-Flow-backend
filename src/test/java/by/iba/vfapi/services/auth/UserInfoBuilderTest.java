@@ -19,8 +19,8 @@
 
 package by.iba.vfapi.services.auth;
 
+import by.iba.vfapi.exceptions.BadRequestException;
 import by.iba.vfapi.exceptions.ConfigurationException;
-import by.iba.vfapi.exceptions.InternalProcessingException;
 import by.iba.vfapi.model.auth.UserInfo;
 import by.iba.vfapi.model.auth.UserInfoBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -63,7 +63,7 @@ class UserInfoBuilderTest {
             .of(AUTH_ID, "test", AUTH_USERNAME, "tester", AUTH_NAME, "abc")
             .forEach((k, v) -> objectNode.set(k, new TextNode(v)));
         objectNode.set(AUTH_EMAIL, null);
-        assertThrows(InternalProcessingException.class, () -> {
+        assertThrows(BadRequestException.class, () -> {
             UserInfoBuilder.buildWithEnv(env, objectNode);
         });
 

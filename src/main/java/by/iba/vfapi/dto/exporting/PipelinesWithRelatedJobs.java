@@ -19,6 +19,7 @@
 
 package by.iba.vfapi.dto.exporting;
 
+import by.iba.vfapi.model.argo.WorkflowTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -30,6 +31,6 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public class PipelinesWithRelatedJobs {
-    private final String workflowTemplate;
+    private final WorkflowTemplate workflowTemplate;
     private final List<String> relatedJobIds = new ArrayList<>();
 }
