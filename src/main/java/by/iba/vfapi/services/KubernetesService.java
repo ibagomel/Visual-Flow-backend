@@ -47,11 +47,13 @@ import io.fabric8.kubernetes.client.ConfigBuilder;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.NamespacedKubernetesClient;
 import io.fabric8.kubernetes.client.RequestConfigBuilder;
+import io.fabric8.kubernetes.client.ResourceNotFoundException;
 import io.fabric8.kubernetes.client.dsl.FunctionCallable;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.codec.binary.Base64;
@@ -88,10 +90,33 @@ public class KubernetesService {
                                                           .build());
     }
 
+    /**
+     * Helper method to generate unique name for k8s entity
+     *
+     * @param nameValidator supposed to check whether entity with such name already exists in k8s
+     * @return unique name
+     */
+    public static String getUniqueEntityName(
+        Function<String, Object> nameValidator) {
+        String name = UUID.randomUUID().toString();
+        while (true) {
+            try {
+                Object apply = nameValidator.apply(name);
+                if (apply == null) {
+                    return name;
+                }
+                name = UUID.randomUUID().toString();
+            } catch (ResourceNotFoundException e) {
+                break;
+            }
+        }
+        return name;
+    }
+
     protected FunctionCallable<NamespacedKubernetesClient> getAuthenticatedClient(NamespacedKubernetesClient kbClient) {
         Secret secret = getServiceAccountSecret(authenticationService.getUserInfo().getUsername());
         String k8sToken = new String(Base64.decodeBase64(secret.getData().get("token")), StandardCharsets.UTF_8);
-        return kbClient.withRequestConfig(new RequestConfigBuilder().withNewOauthToken(k8sToken).build());
+        return kbClient.withRequestConfig(new RequestConfigBuilder().withOauthToken(k8sToken).build());
     }
 
     protected <T> T authenticatedCall(Function<NamespacedKubernetesClient, T> caller) {
@@ -231,6 +256,22 @@ public class KubernetesService {
     }
 
     /**
+     * Get secrets based on certain labels.
+     *
+     * @param namespace k8s namespace
+     * @param labels    labels
+     * @return list of secrets
+     */
+    public List<Secret> getSecretsByLabels(final String namespace, final Map<String, String> labels) {
+        return authenticatedCall(authenticatedClient -> authenticatedClient
+            .secrets()
+            .inNamespace(namespace)
+            .withLabels(labels)
+            .list()
+            .getItems());
+    }
+
+    /**
      * Gets resource usage info.
      *
      * @param namespace namespace.
@@ -351,7 +392,7 @@ public class KubernetesService {
                 .createOrReplace(new ServiceAccountBuilder()
                                      .withNewMetadata()
                                      .addToAnnotations(annotations)
-                                     .withNewName(saName)
+                                     .withName(saName)
                                      .addToLabels(K8sUtils.APP, appNameLabel)
                                      .endMetadata()
                                      .build());
@@ -661,6 +702,36 @@ public class KubernetesService {
             .configMaps()
             .inNamespace(namespaceId)
             .withName(name)
+            .delete());
+    }
+
+    /**
+     * Deletes all config maps based on label values
+     *
+     * @param namespace k8s namespace
+     * @param labels    labels
+     */
+    public void deleteConfigMapsByLabels(final String namespace, final Map<String, String> labels) {
+        authenticatedCall(authenticatedClient -> authenticatedClient
+            .configMaps()
+            .inNamespace(namespace)
+            .withLabels(labels)
+            .withGracePeriod(0)
+            .delete());
+    }
+
+    /**
+     * Deletes all secrets based on label values
+     *
+     * @param namespace k8s namespace
+     * @param labels    labels
+     */
+    public void deleteSecretsByLabels(final String namespace, final Map<String, String> labels) {
+        authenticatedCall(authenticatedClient -> authenticatedClient
+            .secrets()
+            .inNamespace(namespace)
+            .withLabels(labels)
+            .withGracePeriod(0)
             .delete());
     }
 

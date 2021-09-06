@@ -377,16 +377,16 @@ public class JobService {
                          .endFieldRef()
                          .endValueFrom()
                          .build(),
-                     new EnvVarBuilder().withName("IMAGE_PULL_SECRETS").withNewValue(imagePullSecret).build(),
-                     new EnvVarBuilder().withName("JOB_MASTER").withNewValue(jobMaster).build(),
-                     new EnvVarBuilder().withName("POD_NAME").withNewValue(jobId).build(),
-                     new EnvVarBuilder().withName("JOB_ID").withNewValue(jobId).build(),
+                     new EnvVarBuilder().withName("IMAGE_PULL_SECRETS").withValue(imagePullSecret).build(),
+                     new EnvVarBuilder().withName("JOB_MASTER").withValue(jobMaster).build(),
+                     new EnvVarBuilder().withName("POD_NAME").withValue(jobId).build(),
+                     new EnvVarBuilder().withName("JOB_ID").withValue(jobId).build(),
                      new EnvVarBuilder()
                          .withName("PIPELINE_JOB_ID")
-                         .withNewValue(Constants.NOT_PIPELINE_FLAG)
+                         .withValue(Constants.NOT_PIPELINE_FLAG)
                          .build(),
-                     new EnvVarBuilder().withName("JOB_IMAGE").withNewValue(jobImage).build(),
-                     new EnvVarBuilder().withName("POD_NAMESPACE").withNewValue(projectId).build())
+                     new EnvVarBuilder().withName("JOB_IMAGE").withValue(jobImage).build(),
+                     new EnvVarBuilder().withName("POD_NAMESPACE").withValue(projectId).build())
             .withEnvFrom(new EnvFromSourceBuilder()
                              .withNewConfigMapRef()
                              .withName(jobId)
@@ -397,7 +397,7 @@ public class JobService {
                              .withName(ParamsDto.SECRET_NAME)
                              .endSecretRef()
                              .build())
-            .withResources(K8sUtils.getResourceRequirements(configMap))
+            .withResources(K8sUtils.getResourceRequirements(configMap.getData()))
             .withCommand("/opt/spark/work-dir/entrypoint.sh")
             .withImage(jobImage)
             .withImagePullPolicy("Always")

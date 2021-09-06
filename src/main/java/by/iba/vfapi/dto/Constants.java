@@ -48,6 +48,7 @@ public final class Constants {
     public static final String SPARK_ROLE_EXEC = "executor";
     public static final String WORKFLOW_POD_LABEL = "workflows.argoproj.io/workflow";
     public static final String PIPELINE_JOB_ID_LABEL = "pipelineJobId";
+    public static final String PIPELINE_ID_LABEL = "pipelineId";
     public static final String NOT_PIPELINE_FLAG = "notPipeline";
 
     public static final String LIMITS_CPU = "limits.cpu";
@@ -81,13 +82,27 @@ public final class Constants {
     public static final String FINISHED_AT = "FINISHED_AT";
     public static final String PROGRESS = "PROGRESS";
     public static final String ANNOTATION_JOB_STATUSES = "AnnotationForJobStatuses";
+    public static final String CONTAINER_STAGE = "CONTAINER_STAGE";
     public static final String NODE_OPERATION = "operation";
     public static final String NODE_OPERATION_EDGE = "EDGE";
     public static final String NODE_OPERATION_JOB = "JOB";
     public static final String NODE_OPERATION_NOTIFICATION = "NOTIFICATION";
+    public static final String NODE_OPERATION_CONTAINER = "CONTAINER";
     public static final String NODE_JOB_NAME = "name";
     public static final String NODE_JOB_ID = "jobId";
+    public static final String NODE_IMAGE_LINK = "image";
+    public static final String NODE_REGISTRY_LINK = "registry";
+    public static final String NODE_USERNAME = "username";
+    public static final String NODE_PASSWORD = "password";
+    public static final String NODE_IMAGE_PULL_POLICY = "imagePullPolicy";
+    public static final String NODE_START_COMMAND = "command";
+    public static final String NODE_MOUNT_PROJECT_PARAMS = "mountProjectParams";
     public static final String NODE_NOTIFICATION_RECIPIENTS = "addressees";
     public static final String NODE_NOTIFICATION_MESSAGE = "message";
     public static final String NODE_NOTIFICATION_NAME = "name";
+    public static final String KIND_JOB = "Job";
+    public static final String KIND_PIPELINE = "Pipeline";
+    public static final String NODE_CONTAINER_NAME = "name";
+    public static final String NODE_IMAGE_PULL_SECRET_TYPE = "imagePullSecretType";
+    public static final String NODE_IMAGE_PULL_SECRET_NAME = "imagePullSecretName";
 }

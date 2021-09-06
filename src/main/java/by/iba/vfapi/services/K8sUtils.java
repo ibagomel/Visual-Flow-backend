@@ -20,7 +20,6 @@
 package by.iba.vfapi.services;
 
 import by.iba.vfapi.dto.Constants;
-import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ContainerStateTerminated;
 import io.fabric8.kubernetes.api.model.ContainerStatus;
 import io.fabric8.kubernetes.api.model.PodStatus;
@@ -99,8 +98,7 @@ public class K8sUtils {
      * @param configMap configMap
      * @return resourceRequirements
      */
-    static ResourceRequirements getResourceRequirements(final ConfigMap configMap) {
-        Map<String, String> params = configMap.getData();
+    static ResourceRequirements getResourceRequirements(Map<String, String> params) {
         Quantity limitMem = Quantity.parse(Quantity
                                                .getAmountInBytes(Quantity.parse(params.get(Constants.DRIVER_MEMORY)))
                                                .multiply(BigDecimal.valueOf(Constants.MEMORY_OVERHEAD_FACTOR))

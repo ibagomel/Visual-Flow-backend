@@ -19,31 +19,23 @@
 
 package by.iba.vfapi.dto.importing;
 
-import by.iba.vfapi.config.OpenApiConfig;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
+
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.List;
-import java.util.Map;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 
 /**
- * Export response DTO class
+ * Entity response DTO class
  */
 @Getter
 @Builder
 @EqualsAndHashCode
 @ToString
-@Schema(description = "DTO that contains jobs/pipelines that were not imported")
-public class ImportResponseDto {
-    // TODO normal ids or Kube ones
-    @ArraySchema(arraySchema = @Schema(description = "Ids of the jobs that were not imported"), schema =
-    @Schema(ref = OpenApiConfig.SCHEMA_KUBE_UUID_ONE))
-    private final List<String> notImportedJobs;
-    @ArraySchema(arraySchema = @Schema(description = "Ids of the pipelines that were not imported"), schema =
-    @Schema(ref = OpenApiConfig.SCHEMA_KUBE_UUID_TWO))
-    private final List<String> notImportedPipelines;
-    private final Map<String, List<EntityDto>> missingProjectParams;
+@Schema(description = "DTO with information about missing project parameter")
+public class EntityDto {
+    private String id;
+    private String kind;
+    private String nodeId;
 }

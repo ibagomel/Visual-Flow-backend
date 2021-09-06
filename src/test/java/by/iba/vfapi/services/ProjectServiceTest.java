@@ -215,7 +215,7 @@ class ProjectServiceTest {
     @Test
     void testGetAll() {
         Namespace namespace = new NamespaceBuilder()
-            .withStatus(new NamespaceStatusBuilder().withNewPhase("Active").build())
+            .withStatus(new NamespaceStatusBuilder().withPhase("Active").build())
             .withNewMetadata()
             .withName(PROJECT_ID)
             .addToAnnotations(Constants.DESCRIPTION_FIELD, "description")

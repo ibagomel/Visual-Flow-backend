@@ -20,7 +20,9 @@
 package by.iba.vfapi.dto;
 
 import by.iba.vfapi.exceptions.BadRequestException;
+import by.iba.vfapi.model.ContainerStageConfig;
 import by.iba.vfapi.services.KubernetesService;
+import by.iba.vfapi.services.PipelineService;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -31,6 +33,7 @@ import io.fabric8.kubernetes.client.ResourceNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -84,11 +87,16 @@ public class GraphDto {
      */
     public static void validateGraphPipeline(
         GraphDto graphDto, String projectId, KubernetesService kubernetesService) {
-        final Map<String, Consumer<NodeDto>> nodeValidators = Map.of(
-            Constants.NODE_OPERATION_JOB,
-            nodeDto -> validateJobNode(nodeDto, projectId, kubernetesService),
-            Constants.NODE_OPERATION_NOTIFICATION,
-            GraphDto::validateNotificationNode);
+        final Map<String, Consumer<NodeDto>> nodeValidators = Map.of(Constants.NODE_OPERATION_JOB,
+                                                                     nodeDto -> validateJobNode(nodeDto,
+                                                                                                projectId,
+                                                                                                kubernetesService),
+                                                                     Constants.NODE_OPERATION_NOTIFICATION,
+                                                                     GraphDto::validateNotificationNode,
+                                                                     Constants.NODE_OPERATION_CONTAINER,
+                                                                     nodeDto -> validateContainerNode(nodeDto,
+                                                                                                      projectId,
+                                                                                                      kubernetesService));
         if ((graphDto.edges == null || graphDto.edges.isEmpty()) &&
             (graphDto.nodes == null || graphDto.nodes.isEmpty())) {
             return;
@@ -141,6 +149,71 @@ public class GraphDto {
             }
         } catch (ResourceNotFoundException e) {
             throw new BadRequestException("Job node is referring to non-existing job", e);
+        }
+    }
+
+    private static void validateContainerNode(
+        NodeDto containerNode, String namespace, KubernetesService kubernetesService) {
+        Map<String, String> nodeValues = containerNode.value;
+        if (!nodeValues.containsKey(Constants.NODE_CONTAINER_NAME) ||
+            nodeValues.get(Constants.NODE_CONTAINER_NAME).isEmpty()) {
+            throw new BadRequestException("Container node must have a name");
+        }
+        if (!nodeValues.containsKey(Constants.NODE_IMAGE_LINK) ||
+            nodeValues.get(Constants.NODE_IMAGE_LINK).isEmpty()) {
+            throw new BadRequestException("Link to the image has to be specified");
+        }
+        if (!nodeValues.containsKey(Constants.NODE_IMAGE_PULL_POLICY) ||
+            nodeValues.get(Constants.NODE_IMAGE_PULL_POLICY).isEmpty()) {
+            throw new BadRequestException("Image pull policy has to be specified");
+        }
+        if (!nodeValues.containsKey(PipelineService.LIMITS_MEMORY) ||
+            !nodeValues.containsKey(PipelineService.LIMITS_CPU) ||
+            !nodeValues.containsKey(PipelineService.REQUESTS_MEMORY) ||
+            !nodeValues.containsKey(PipelineService.REQUESTS_CPU)) {
+            throw new BadRequestException("Container's resource configuration has to be specified");
+        }
+        if (!nodeValues.containsKey(Constants.NODE_IMAGE_PULL_SECRET_TYPE)) {
+            throw new BadRequestException("Image pull secret type is missing");
+        }
+        ContainerStageConfig.ImagePullSecretType imagePullSecretType;
+        try {
+            imagePullSecretType =
+                ContainerStageConfig.ImagePullSecretType.valueOf(nodeValues.get(Constants.NODE_IMAGE_PULL_SECRET_TYPE));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Malformed image pull secret type has been provided", e);
+        }
+        switch (imagePullSecretType) {
+            case NEW:
+                List<String> registryConfigParams = new ArrayList<>();
+                registryConfigParams.add(nodeValues.get(Constants.NODE_REGISTRY_LINK));
+                registryConfigParams.add(nodeValues.get(Constants.NODE_USERNAME));
+                registryConfigParams.add(nodeValues.get(Constants.NODE_PASSWORD));
+                long providedConfigParams = registryConfigParams.stream().filter(Objects::nonNull).count();
+                if (providedConfigParams != registryConfigParams.size()) {
+                    throw new BadRequestException(
+                        "In order to create a new image pull secret you have to specify link to the registry, a " +
+                            "username and a password");
+                }
+                break;
+            case PROVIDED:
+                if (!nodeValues.containsKey(Constants.NODE_IMAGE_PULL_SECRET_NAME)) {
+                    throw new BadRequestException("Image pull secret name is missing");
+                }
+                String imagePullSecretName = nodeValues.get(Constants.NODE_IMAGE_PULL_SECRET_NAME);
+                try {
+                    kubernetesService.getSecret(namespace, imagePullSecretName);
+                } catch (ResourceNotFoundException e) {
+                    throw new BadRequestException("Cannot find a secret with provided name", e);
+                }
+                break;
+            default:
+                break;
+        }
+
+        if (!nodeValues.containsKey(Constants.NODE_MOUNT_PROJECT_PARAMS) ||
+            nodeValues.get(Constants.NODE_MOUNT_PROJECT_PARAMS).isEmpty()) {
+            throw new BadRequestException("Mount project params option has to be specified");
         }
     }
 

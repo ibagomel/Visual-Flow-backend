@@ -20,25 +20,37 @@
 package by.iba.vfapi.services;
 
 import by.iba.vfapi.dto.Constants;
+import by.iba.vfapi.dto.GraphDto;
 import by.iba.vfapi.dto.exporting.ExportRequestDto;
 import by.iba.vfapi.dto.exporting.ExportResponseDto;
 import by.iba.vfapi.dto.exporting.PipelinesWithRelatedJobs;
+import by.iba.vfapi.dto.importing.EntityDto;
 import by.iba.vfapi.dto.importing.ImportResponseDto;
+import by.iba.vfapi.dto.projects.ParamDto;
 import by.iba.vfapi.exceptions.BadRequestException;
+import by.iba.vfapi.model.argo.ImagePullSecret;
 import by.iba.vfapi.model.argo.WorkflowTemplate;
 import by.iba.vfapi.model.argo.WorkflowTemplateSpec;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.ResourceNotFoundException;
+import java.io.IOException;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -48,6 +60,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.binary.Base64;
 import org.springframework.stereotype.Service;
 
 /**
@@ -57,10 +70,11 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class TransferService {
+    private static final Pattern SHARPS_REGEX = Pattern.compile("^#(.+?)#$");
     private final ArgoKubernetesService argoKubernetesService;
     private final JobService jobService;
     private final PipelineService pipelineService;
-
+    private final ProjectService projectService;
 
     /**
      * Exporting jobs by ids.
@@ -138,13 +152,90 @@ public class TransferService {
     }
 
     /**
+     * Appends missing project parameters to DTO.
+     *
+     * @param missingProjectParams container for missing parameters
+     * @param kind                 flag whether it is job or pipeline
+     * @param graph                graph of job or pipeline
+     * @param existingParams       existing project params
+     */
+    private void appendMissingParams(
+        String id,
+        Map<String, List<EntityDto>> missingProjectParams,
+        String kind,
+        GraphDto graph,
+        List<String> existingParams) {
+
+        List<GraphDto.NodeDto> nodes = graph.getNodes();
+        List<String> requiredProjectParams = new ArrayList<>();
+        List<String> nodeIds = new ArrayList<>();
+        for (GraphDto.NodeDto node : nodes) {
+            for (Map.Entry<String, String> entry : node.getValue().entrySet()) {
+                Matcher matcher = SHARPS_REGEX.matcher(entry.getValue());
+                if (matcher.find()) {
+                    nodeIds.add(node.getId());
+                    requiredProjectParams.add(matcher.group(1));
+                }
+            }
+        }
+        int index = 0;
+        for (String requiredParam : requiredProjectParams) {
+            if (!existingParams.contains(requiredParam)) {
+                if (missingProjectParams.containsKey(requiredParam)) {
+                    List<EntityDto> entityDtos = missingProjectParams.get(requiredParam);
+                    entityDtos.add(EntityDto.builder().id(id).kind(kind).nodeId(nodeIds.get(index)).build());
+                    missingProjectParams.put(requiredParam, entityDtos);
+                } else {
+                    List<EntityDto> entityDto = new ArrayList<>();
+                    entityDto.add(EntityDto.builder().id(id).kind(kind).nodeId(nodeIds.get(index)).build());
+                    missingProjectParams.put(requiredParam, entityDto);
+                }
+            }
+            index++;
+        }
+    }
+
+    /**
+     * Appends missing project params from job to DTO.
+     *
+     * @param configMap            job's configmap
+     * @param missingProjectParams container for missing parameters
+     * @param existingParams       existing project params
+     */
+    private void appendJobsMissingParams(
+        ConfigMap configMap, Map<String, List<EntityDto>> missingProjectParams, List<String> existingParams) {
+
+        JsonNode definition;
+        try {
+            definition = new ObjectMapper().readTree(Base64.decodeBase64(configMap
+                                                                             .getMetadata()
+                                                                             .getAnnotations()
+                                                                             .get(Constants.DEFINITION)));
+        } catch (IOException e) {
+            throw new BadRequestException("Invalid job definition JSON", e);
+        }
+        String kind = Constants.KIND_JOB;
+        String id = configMap.getMetadata().getName();
+        GraphDto graph = GraphDto.parseGraph(definition);
+        appendMissingParams(id, missingProjectParams, kind, graph, existingParams);
+
+    }
+
+    /**
      * Importing jobs.
      *
-     * @param projectId project id
-     * @param jsonJobs  jsonJobs for import
+     * @param projectId            project id
+     * @param jsonJobs             jsonJobs for import
+     * @param missingProjectParams missing project params
+     * @param existingParams       existing project params
      * @return list with not imported jobs ids
      */
-    private List<String> importJobs(final String projectId, final Set<ConfigMap> jsonJobs) {
+    private List<String> importJobs(
+        final String projectId,
+        final Set<ConfigMap> jsonJobs,
+        Map<String, List<EntityDto>> missingProjectParams,
+        List<String> existingParams) {
+
         List<String> notImported = new LinkedList<>();
         for (ConfigMap configMap : jsonJobs) {
             String id = configMap.getMetadata().getName();
@@ -156,6 +247,7 @@ public class TransferService {
             try {
                 jobService.checkJobName(projectId, id, name);
                 argoKubernetesService.createOrReplaceConfigMap(projectId, configMap);
+                appendJobsMissingParams(configMap, missingProjectParams, existingParams);
             } catch (BadRequestException ex) {
                 LOGGER.error(ex.getMessage(), ex);
                 notImported.add(id);
@@ -165,32 +257,86 @@ public class TransferService {
         return notImported;
     }
 
+
+    /**
+     * Appends missing project parameters from pipeline to DTO.
+     *
+     * @param workflowTemplate     workflow template
+     * @param missingProjectParams container for missing parameters
+     * @param existingParams       existing project params
+     */
+    private void appendPipelinesMissingParams(
+        WorkflowTemplate workflowTemplate,
+        Map<String, List<EntityDto>> missingProjectParams,
+        List<String> existingParams) {
+
+        JsonNode definition;
+        try {
+            definition = new ObjectMapper().readTree(Base64.decodeBase64(workflowTemplate
+                                                                             .getMetadata()
+                                                                             .getAnnotations()
+                                                                             .get(Constants.DEFINITION)));
+        } catch (IOException e) {
+            throw new BadRequestException("Invalid pipeline definition JSON", e);
+        }
+        String kind = Constants.KIND_PIPELINE;
+        String id = workflowTemplate.getMetadata().getName();
+        GraphDto graph = GraphDto.parseGraph(definition);
+        appendMissingParams(id, missingProjectParams, kind, graph, existingParams);
+    }
+
+
     /**
      * Importing pipelines.
      *
-     * @param projectId     project id
-     * @param jsonPipelines jsonPipelines for import
+     * @param projectId            project id
+     * @param jsonPipelines        jsonPipelines for import
+     * @param missingProjectParams container for missing parameters
+     * @param existingParams       existing project params
      * @return list with not imported pipelines ids
      */
-    private List<String> importPipelines(final String projectId, final Set<WorkflowTemplate> jsonPipelines) {
+    private List<String> importPipelines(
+        final String projectId,
+        final Set<WorkflowTemplate> jsonPipelines,
+        Map<String, List<EntityDto>> missingProjectParams,
+        List<String> existingParams) {
+
         List<String> notImported = new LinkedList<>();
 
         for (WorkflowTemplate workflowTemplate : jsonPipelines) {
             String name = workflowTemplate.getMetadata().getLabels().get(Constants.NAME);
             String id = workflowTemplate.getMetadata().getName();
-            workflowTemplate
-                .getMetadata()
-                .getAnnotations()
-                .put(Constants.LAST_MODIFIED, ZonedDateTime.now().format(Constants.DATE_TIME_FORMATTER));
+            WorkflowTemplate existingWfTemplate = null;
+            try {
+                existingWfTemplate = argoKubernetesService.getWorkflowTemplate(projectId, id);
+            } catch (ResourceNotFoundException e) {
+                LOGGER.info("Pipeline with id {} doesn't exist, the import procedure will create a new one", id);
+            }
             try {
                 pipelineService.checkPipelineName(projectId, id, name);
-                argoKubernetesService.createOrReplaceWorkflowTemplate(projectId, workflowTemplate);
-                argoKubernetesService.deleteWorkflow(projectId, id);
-            } catch (BadRequestException ex) {
+                String encodedDefinition =
+                    workflowTemplate.getMetadata().getAnnotations().get(Constants.DEFINITION);
+                if (encodedDefinition == null) {
+                    throw new BadRequestException(String.format("Workflow template with id=%s, name=%s is " +
+                                                                    "missing definition graph", id, name));
+                }
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode parsedDefinition = mapper.readTree(new String(Base64.decodeBase64(encodedDefinition)));
+                if (existingWfTemplate == null) {
+                    argoKubernetesService.createOrReplaceWorkflowTemplate(projectId,
+                                                                          pipelineService.createWorkflowTemplate(
+                                                                              projectId,
+                                                                              id,
+                                                                              name,
+                                                                              parsedDefinition));
+                } else {
+                    LOGGER.info("Pipeline with id {} will be updated via import operation", id);
+                    pipelineService.update(projectId, id, parsedDefinition, name);
+                }
+                appendPipelinesMissingParams(workflowTemplate, missingProjectParams, existingParams);
+            } catch (BadRequestException | JsonProcessingException ex) {
                 LOGGER.error(ex.getMessage(), ex);
                 notImported.add(id);
-            } catch (ResourceNotFoundException e) {
-                LOGGER.info("No workflows to remove");
             }
         }
 
@@ -234,13 +380,22 @@ public class TransferService {
      */
     public ImportResponseDto importing(
         String projectId, Set<ConfigMap> jsonJobs, Set<WorkflowTemplate> jsonPipelines) {
-        List<String> notImportedJobs = importJobs(projectId, jsonJobs);
-        List<String> notImportedPipelines = importPipelines(projectId, jsonPipelines);
+        Map<String, List<EntityDto>> missingProjectParams = new HashMap<>();
+        List<String> existingParams = projectService
+            .getParams(projectId)
+            .getParams()
+            .stream()
+            .map(ParamDto::getKey)
+            .collect(Collectors.toList());
+        List<String> notImportedJobs = importJobs(projectId, jsonJobs, missingProjectParams, existingParams);
+        List<String> notImportedPipelines =
+            importPipelines(projectId, jsonPipelines, missingProjectParams, existingParams);
 
         return ImportResponseDto
             .builder()
             .notImportedJobs(notImportedJobs)
             .notImportedPipelines(notImportedPipelines)
+            .missingProjectParams(missingProjectParams)
             .build();
     }
 
@@ -262,11 +417,10 @@ public class TransferService {
      */
     public void copyJob(final String projectId, final String jobId) {
         ConfigMap configMap = argoKubernetesService.getConfigMap(projectId, jobId);
-        copyEntity(
-            projectId,
-            configMap,
-            (projId, confMap) -> jobService.createFromConfigMap(projId, confMap, false),
-            argoKubernetesService.getAllConfigMaps(projectId));
+        copyEntity(projectId,
+                   configMap,
+                   (projId, confMap) -> jobService.createFromConfigMap(projId, confMap, false),
+                   argoKubernetesService.getAllConfigMaps(projectId));
 
     }
 
@@ -278,11 +432,35 @@ public class TransferService {
      */
     public void copyPipeline(final String projectId, final String pipelineId) {
         WorkflowTemplate workflowTemplate = argoKubernetesService.getWorkflowTemplate(projectId, pipelineId);
-        copyEntity(
-            projectId,
-            workflowTemplate,
-            (projId, wfTemplate) -> pipelineService.createFromWorkflowTemplate(projId, wfTemplate, false),
-            argoKubernetesService.getAllWorkflowTemplates(projectId));
+        String newPipelineId =
+            KubernetesService.getUniqueEntityName((String newId) -> argoKubernetesService.getWorkflowTemplate(
+                projectId,
+                newId));
+        copyEntity(projectId, workflowTemplate, (String projId, WorkflowTemplate wfTemplate) -> {
+            Set<Secret> imagePullSecrets = new HashSet<>(argoKubernetesService.getSecretsByLabels(projectId,
+                                                                                                  new HashMap<>(Map.of(
+                                                                                                      Constants.PIPELINE_ID_LABEL,
+                                                                                                      pipelineId,
+                                                                                                      Constants.CONTAINER_STAGE,
+                                                                                                      "true"))));
+            imagePullSecrets.forEach((Secret s) -> {
+                s.getMetadata().getLabels().replace(Constants.PIPELINE_ID_LABEL, newPipelineId);
+                String newSecretName =
+                    KubernetesService.getUniqueEntityName((String sName) -> argoKubernetesService.getSecret(
+                        projectId,
+                        sName));
+                s.getMetadata().setName(newSecretName);
+                argoKubernetesService.createOrReplaceSecret(projectId, s);
+            });
+            ArrayList<ImagePullSecret> listOfSecrets = new ArrayList<>();
+            listOfSecrets.add(new ImagePullSecret().name(pipelineService.getImagePullSecret()));
+            imagePullSecrets.forEach((Secret sec) -> listOfSecrets.add(new ImagePullSecret().name(sec
+                                                                                                      .getMetadata()
+                                                                                                      .getName())));
+            wfTemplate.getSpec().setImagePullSecrets(listOfSecrets);
+            wfTemplate.getMetadata().setName(newPipelineId);
+            argoKubernetesService.createOrReplaceWorkflowTemplate(projectId, wfTemplate);
+        }, argoKubernetesService.getAllWorkflowTemplates(projectId));
     }
 
     /**

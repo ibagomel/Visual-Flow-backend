@@ -22,7 +22,10 @@ package by.iba.vfapi.services;
 import by.iba.vfapi.dto.Constants;
 import by.iba.vfapi.dto.exporting.ExportRequestDto;
 import by.iba.vfapi.dto.exporting.ExportResponseDto;
+import by.iba.vfapi.dto.importing.EntityDto;
 import by.iba.vfapi.dto.importing.ImportResponseDto;
+import by.iba.vfapi.dto.projects.ParamDto;
+import by.iba.vfapi.dto.projects.ParamsDto;
 import by.iba.vfapi.exceptions.BadRequestException;
 import by.iba.vfapi.model.argo.Arguments;
 import by.iba.vfapi.model.argo.DagTask;
@@ -31,11 +34,17 @@ import by.iba.vfapi.model.argo.Parameter;
 import by.iba.vfapi.model.argo.Template;
 import by.iba.vfapi.model.argo.WorkflowTemplate;
 import by.iba.vfapi.model.argo.WorkflowTemplateSpec;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.client.CustomResource;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -61,6 +70,77 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TransferServiceTest {
+    private static JsonNode GRAPH_WITH_PARAM;
+    private static JsonNode GRAPH_WITHOUT_PARAM;
+
+    static {
+        try {
+            GRAPH_WITH_PARAM = new ObjectMapper().readTree("{\n" +
+                                                               "  \"graph\": [\n" +
+                                                               "    {\n" +
+                                                               "      \"value\": {\n" +
+                                                               "        \"jobId\": \"cm1\",\n" +
+                                                               "        \"name\": \"#testJob#\",\n" +
+                                                               "        \"operation\": \"JOB\"\n" +
+                                                               "      },\n" +
+                                                               "      \"id\": \"jRjFu5yR\",\n" +
+                                                               "      \"vertex\": true\n" +
+                                                               "    },\n" +
+                                                               "    {\n" +
+                                                               "      \"value\": {\n" +
+                                                               "        \"jobId\": \"cm2\",\n" +
+                                                               "        \"name\": \"testJob2\",\n" +
+                                                               "        \"operation\": \"JOB\"\n" +
+                                                               "      },\n" +
+                                                               "      \"id\": \"cyVyU8Xfw\",\n" +
+                                                               "      \"vertex\": true\n" +
+                                                               "    },\n" +
+                                                               "    {\n" +
+                                                               "      \"value\": {\n" +
+                                                               "        \"successPath\": true,\n" +
+                                                               "        \"operation\": \"EDGE\"\n" +
+                                                               "      },\n" +
+                                                               "      \"source\": \"jRjFu5yR\",\n" +
+                                                               "      \"target\": \"cyVyU8Xfw\"\n" +
+                                                               "    }\n" +
+                                                               "  ]\n" +
+                                                               "}");
+
+            GRAPH_WITHOUT_PARAM = new ObjectMapper().readTree("{\n" +
+                                                                  "  \"graph\": [\n" +
+                                                                  "    {\n" +
+                                                                  "      \"value\": {\n" +
+                                                                  "        \"jobId\": \"cm1\",\n" +
+                                                                  "        \"name\": \"testJob\",\n" +
+                                                                  "        \"operation\": \"JOB\"\n" +
+                                                                  "      },\n" +
+                                                                  "      \"id\": \"jRjFu5yR\",\n" +
+                                                                  "      \"vertex\": true\n" +
+                                                                  "    },\n" +
+                                                                  "    {\n" +
+                                                                  "      \"value\": {\n" +
+                                                                  "        \"jobId\": \"cm2\",\n" +
+                                                                  "        \"name\": \"testJob2\",\n" +
+                                                                  "        \"operation\": \"JOB\"\n" +
+                                                                  "      },\n" +
+                                                                  "      \"id\": \"cyVyU8Xfw\",\n" +
+                                                                  "      \"vertex\": true\n" +
+                                                                  "    },\n" +
+                                                                  "    {\n" +
+                                                                  "      \"value\": {\n" +
+                                                                  "        \"successPath\": true,\n" +
+                                                                  "        \"operation\": \"EDGE\"\n" +
+                                                                  "      },\n" +
+                                                                  "      \"source\": \"jRjFu5yR\",\n" +
+                                                                  "      \"target\": \"cyVyU8Xfw\"\n" +
+                                                                  "    }\n" +
+                                                                  "  ]\n" +
+                                                                  "}");
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+    }
+
     @Mock
     private ArgoKubernetesService argoKubernetesService;
     @Mock
@@ -68,10 +148,12 @@ class TransferServiceTest {
     @Mock
     private PipelineService pipelineService;
     private TransferService transferService;
+    @Mock
+    private ProjectService projectService;
 
     @BeforeEach
     void setUp() {
-        transferService = new TransferService(argoKubernetesService, jobService, pipelineService);
+        transferService = new TransferService(argoKubernetesService, jobService, pipelineService, projectService);
     }
 
     @Test
@@ -163,7 +245,10 @@ class TransferServiceTest {
             .withName("jobId1")
             .addToLabels(Constants.NAME, "jobName1")
             .addToLabels(Constants.TYPE, Constants.TYPE_JOB)
-            .addToAnnotations(Constants.DEFINITION, Base64.encodeBase64String("GRAPH".getBytes()))
+            .addToAnnotations(Constants.DEFINITION,
+                              Base64.encodeBase64String(GRAPH_WITH_PARAM
+                                                            .toString()
+                                                            .getBytes(StandardCharsets.UTF_8)))
             .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
             .endMetadata()
             .build();
@@ -179,7 +264,10 @@ class TransferServiceTest {
             .withName("jobId2")
             .addToLabels(Constants.NAME, "jobName2")
             .addToLabels(Constants.TYPE, Constants.TYPE_JOB)
-            .addToAnnotations(Constants.DEFINITION, Base64.encodeBase64String("GRAPH".getBytes()))
+            .addToAnnotations(Constants.DEFINITION,
+                              Base64.encodeBase64String(GRAPH_WITHOUT_PARAM
+                                                            .toString()
+                                                            .getBytes(StandardCharsets.UTF_8)))
             .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
             .endMetadata()
             .build();
@@ -195,7 +283,10 @@ class TransferServiceTest {
             .withName("jobId3")
             .addToLabels(Constants.NAME, "jobName3")
             .addToLabels(Constants.TYPE, Constants.TYPE_JOB)
-            .addToAnnotations(Constants.DEFINITION, Base64.encodeBase64String("GRAPH".getBytes()))
+            .addToAnnotations(Constants.DEFINITION,
+                              Base64.encodeBase64String(GRAPH_WITHOUT_PARAM
+                                                            .toString()
+                                                            .getBytes(StandardCharsets.UTF_8)))
             .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
             .endMetadata()
             .build();
@@ -205,7 +296,10 @@ class TransferServiceTest {
                                           .withName("pipelineId1")
                                           .addToLabels(Constants.NAME, "pipelineName1")
                                           .addToAnnotations(Constants.DEFINITION,
-                                                            Base64.encodeBase64String("GRAPH".getBytes()))
+                                                            Base64.encodeBase64String(GRAPH_WITHOUT_PARAM
+                                                                                          .toString()
+                                                                                          .getBytes(
+                                                                                              StandardCharsets.UTF_8)))
                                           .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
                                           .build());
         workflowTemplate1.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
@@ -217,7 +311,10 @@ class TransferServiceTest {
                                           .withName("pipelineId2")
                                           .addToLabels(Constants.NAME, "pipelineName2")
                                           .addToAnnotations(Constants.DEFINITION,
-                                                            Base64.encodeBase64String("GRAPH".getBytes()))
+                                                            Base64.encodeBase64String(GRAPH_WITH_PARAM
+                                                                                          .toString()
+                                                                                          .getBytes(
+                                                                                              StandardCharsets.UTF_8)))
                                           .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
                                           .build());
         workflowTemplate2.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
@@ -229,7 +326,10 @@ class TransferServiceTest {
                                           .withName("pipelineId3")
                                           .addToLabels(Constants.NAME, "pipelineName3")
                                           .addToAnnotations(Constants.DEFINITION,
-                                                            Base64.encodeBase64String("GRAPH".getBytes()))
+                                                            Base64.encodeBase64String(GRAPH_WITHOUT_PARAM
+                                                                                          .toString()
+                                                                                          .getBytes(
+                                                                                              StandardCharsets.UTF_8)))
                                           .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
                                           .build());
         workflowTemplate3.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
@@ -249,21 +349,30 @@ class TransferServiceTest {
         doNothing().when(pipelineService).checkPipelineName("projectId", "pipelineId3", "pipelineName3");
 
         doNothing().when(argoKubernetesService).createOrReplaceConfigMap(eq("projectId"), any(ConfigMap.class));
+        when(pipelineService.createWorkflowTemplate(eq("projectId"), anyString(), anyString(), any())).thenReturn(new WorkflowTemplate());
         doNothing()
             .when(argoKubernetesService)
             .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
 
-
+        List<ParamDto> paramDtos =
+            Arrays.asList(ParamDto.builder().key("someKey").value("someValue").secret(false).build(),
+                          ParamDto.builder().key("someKey1").value("someValue2").secret(false).build());
+        ParamsDto paramsDto = ParamsDto.builder().editable(true).params(paramDtos).build();
+        when(projectService.getParams(anyString())).thenReturn(paramsDto);
         ImportResponseDto importing = transferService.importing("projectId",
                                                                 Set.of(configMap1, configMap2, configMap3),
                                                                 Set.of(workflowTemplate1,
                                                                        workflowTemplate2,
                                                                        workflowTemplate3));
 
+        Map<String, List<EntityDto>> expectedParams = new HashMap<>();
+        expectedParams.put("testJob",
+                           Arrays.asList(EntityDto.builder().id("jobId1").kind("Job").nodeId("jRjFu5yR").build()));
         ImportResponseDto expected = ImportResponseDto
             .builder()
             .notImportedPipelines(List.of("pipelineId2"))
             .notImportedJobs(List.of("jobId2"))
+            .missingProjectParams(expectedParams)
             .build();
 
         assertEquals(expected, importing);

@@ -24,6 +24,7 @@ import by.iba.vfapi.dto.pipelines.CronPipelineDto;
 import by.iba.vfapi.dto.pipelines.PipelineOverviewDto;
 import by.iba.vfapi.dto.pipelines.PipelineOverviewListDto;
 import by.iba.vfapi.dto.pipelines.PipelineResponseDto;
+import by.iba.vfapi.dto.projects.ParamsDto;
 import by.iba.vfapi.exceptions.BadRequestException;
 import by.iba.vfapi.model.argo.Arguments;
 import by.iba.vfapi.model.argo.CronWorkflow;
@@ -50,6 +51,8 @@ import io.argoproj.workflow.models.WorkflowSuspendRequest;
 import io.argoproj.workflow.models.WorkflowTerminateRequest;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import io.fabric8.kubernetes.api.model.Secret;
+import io.fabric8.kubernetes.api.model.SecretBuilder;
 import io.fabric8.kubernetes.client.ResourceNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -123,6 +126,8 @@ class PipelineServiceTest {
     @Mock
     private ArgoKubernetesService argoKubernetesService;
     @Mock
+    private ProjectService projectService;
+    @Mock
     private WorkflowServiceApi apiInstance;
     private PipelineService pipelineService;
 
@@ -134,6 +139,7 @@ class PipelineServiceTest {
                                                    "pullSecret",
                                                    "slackImage",
                                                    argoKubernetesService,
+                                                   projectService,
                                                    apiInstance);
     }
 
@@ -145,8 +151,198 @@ class PipelineServiceTest {
             .when(argoKubernetesService)
             .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
         when(argoKubernetesService.getConfigMap(anyString(), anyString())).thenReturn(new ConfigMap());
-
+        when(projectService.getParams(anyString())).thenReturn(ParamsDto.fromSecret(new Secret()).build());
         pipelineService.create("projectId", "name", GRAPH);
+
+        verify(argoKubernetesService).createOrReplaceWorkflowTemplate(anyString(), any(WorkflowTemplate.class));
+    }
+
+    @Test
+    void testCreateWithContainerStage() throws JsonProcessingException {
+        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"), anyString()))
+            .thenThrow(new ResourceNotFoundException(""));
+        doNothing()
+            .when(argoKubernetesService)
+            .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
+        when(projectService.getParams(anyString())).thenReturn(ParamsDto.fromSecret(new Secret()).build());
+        pipelineService.create("projectId",
+                               "name",
+                               new ObjectMapper().readTree("{\"graph\": [\n" +
+                                                               "      {\n" +
+                                                               "        \"value\": {\n" +
+                                                               "          \"name\": " +
+                                                               "\"example_container_stage" +
+                                                               "\",\n" +
+                                                               "          \"image\": \"imageLink\",\n" +
+                                                               "          \"imagePullPolicy" +
+                                                               "\": \"Always\",\n" +
+                                                               "\"mountProjectParams\": " +
+                                                               "\"true\",\n" +
+                                                               "          \"limitsCpu\": " +
+                                                               "\"1\",\n" +
+                                                               "          \"requestsCpu\": " +
+                                                               "\"1\",\n" +
+                                                               "          \"limitsMemory\":" +
+                                                               " \"1\",\n" +
+                                                               "          " +
+                                                               "\"requestsMemory\": \"1\"," +
+                                                               "\n" +
+                                                               "          " +
+                                                               "\"imagePullSecretType\": " +
+                                                               "\"NOT_APPLICABLE\",\n" +
+                                                               "          \"operation\": " +
+                                                               "\"CONTAINER\"\n" +
+                                                               "        },\n" +
+                                                               "        \"id\": \"2\",\n" +
+                                                               "        \"vertex\": true\n" +
+                                                               "      }]}"));
+
+        verify(argoKubernetesService).createOrReplaceWorkflowTemplate(anyString(), any(WorkflowTemplate.class));
+    }
+
+
+    @Test
+    void testCreateWithContainerStageWithCommand() throws JsonProcessingException {
+        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"), anyString()))
+            .thenThrow(new ResourceNotFoundException(""));
+        doNothing()
+            .when(argoKubernetesService)
+            .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
+        when(projectService.getParams(anyString())).thenReturn(ParamsDto.fromSecret(new Secret()).build());
+        pipelineService.create("projectId",
+                               "name",
+                               new ObjectMapper().readTree("{\"graph\": [\n" +
+                                                               "      {\n" +
+                                                               "        \"value\": {\n" +
+                                                               "          \"name\": " +
+                                                               "\"example_container_stage" +
+                                                               "\",\n" +
+                                                               "          \"image\": \"imageLink\",\n" +
+                                                               "          \"imagePullPolicy" +
+                                                               "\": \"Always\",\n" +
+                                                               "          \"command\": " +
+                                                               "\"echo Hello World!\",\n" +
+                                                               "          " +
+                                                               "\"mountProjectParams\": " +
+                                                               "\"true\",\n" +
+                                                               "          \"limitsCpu\": " +
+                                                               "\"1\",\n" +
+                                                               "          \"requestsCpu\": " +
+                                                               "\"1\",\n" +
+                                                               "          \"limitsMemory\":" +
+                                                               " \"1\",\n" +
+                                                               "          " +
+                                                               "\"requestsMemory\": \"1\"," +
+                                                               "\n" +
+                                                               "          " +
+                                                               "\"imagePullSecretType\": " +
+                                                               "\"NOT_APPLICABLE\",\n" +
+                                                               "          \"operation\": " +
+                                                               "\"CONTAINER\"\n" +
+                                                               "        },\n" +
+                                                               "        \"id\": \"2\",\n" +
+                                                               "        \"vertex\": true\n" +
+                                                               "      }]}"));
+
+        verify(argoKubernetesService).createOrReplaceWorkflowTemplate(anyString(), any(WorkflowTemplate.class));
+    }
+
+    @Test
+    void testCreateWithContainerStageWithPrivateImageAndNewSecret() throws JsonProcessingException {
+        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"), anyString()))
+            .thenThrow(new ResourceNotFoundException(""));
+        doNothing()
+            .when(argoKubernetesService)
+            .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
+        when(projectService.getParams(anyString())).thenReturn(ParamsDto.fromSecret(new Secret()).build());
+        when(argoKubernetesService.getSecret(anyString(), anyString()))
+            .thenThrow(new ResourceNotFoundException(""));
+        pipelineService.create("projectId",
+                               "name",
+                               new ObjectMapper().readTree("{\"graph\": [\n" +
+                                                               "      {\n" +
+                                                               "        \"value\": {\n" +
+                                                               "          \"name\": " +
+                                                               "\"example_container_stage" +
+                                                               "\",\n" +
+                                                               "          \"image\": \"testRegistry/testImage\"," +
+                                                               "\n" +
+                                                               "          \"imagePullPolicy" +
+                                                               "\": \"Always\",\n" +
+                                                               "\"mountProjectParams\": " +
+                                                               "\"true\",\n" +
+                                                               "          \"limitsCpu\": " +
+                                                               "\"1\",\n" +
+                                                               "          \"requestsCpu\": " +
+                                                               "\"1\",\n" +
+                                                               "          \"limitsMemory\":" +
+                                                               " \"1\",\n" +
+                                                               "          " +
+                                                               "\"requestsMemory\": \"1\"," +
+                                                               "\n" +
+                                                               "          " +
+                                                               "\"imagePullSecretType\": " +
+                                                               "\"NEW\",\n" +
+                                                               "          \"username\": " +
+                                                               "\"test_user\",\n" +
+                                                               "          \"password\": " +
+                                                               "\"test_pw\",\n" +
+                                                               "          \"registry\": " +
+                                                               "\"testRegistry\",\n" +
+                                                               "          \"operation\": " +
+                                                               "\"CONTAINER\"\n" +
+                                                               "        },\n" +
+                                                               "        \"id\": \"2\",\n" +
+                                                               "        \"vertex\": true\n" +
+                                                               "      }]}"));
+
+        verify(argoKubernetesService).createOrReplaceWorkflowTemplate(anyString(), any(WorkflowTemplate.class));
+    }
+
+    @Test
+    void testCreateWithContainerStageWithPrivateImageAndProvidedSecret() throws JsonProcessingException {
+        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"), anyString()))
+            .thenThrow(new ResourceNotFoundException(""));
+        doNothing()
+            .when(argoKubernetesService)
+            .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
+        when(projectService.getParams(anyString())).thenReturn(ParamsDto.fromSecret(new Secret()).build());
+        when(argoKubernetesService.getSecret(eq("projectId"), eq("existingSecret")))
+            .thenReturn(new SecretBuilder().withNewMetadata().withNamespace("projectId").endMetadata().build());
+        pipelineService.create("projectId",
+                               "name",
+                               new ObjectMapper().readTree("{\"graph\": [\n" +
+                                                               "      {\n" +
+                                                               "        \"value\": {\n" +
+                                                               "          \"name\": " +
+                                                               "\"example_container_stage" +
+                                                               "\",\n" +
+                                                               "          \"image\": \"testRegistry/testImage\"," +
+                                                               "\n" +
+                                                               "          \"imagePullPolicy" +
+                                                               "\": \"Always\",\n" +
+                                                               "\"mountProjectParams\": " +
+                                                               "\"true\",\n" +
+                                                               "          \"limitsCpu\": " +
+                                                               "\"1\",\n" +
+                                                               "          \"requestsCpu\": " +
+                                                               "\"1\",\n" +
+                                                               "          \"limitsMemory\":" +
+                                                               " \"1\",\n" +
+                                                               "          " +
+                                                               "\"requestsMemory\": \"1\"," +
+                                                               "\n" +
+                                                               "          " +
+                                                               "\"imagePullSecretType\": " +
+                                                               "\"PROVIDED\",\n" +
+                                                               "          \"imagePullSecretName\": " +
+                                                               "\"existingSecret\",\n" +
+                                                               "          \"operation\": " +
+                                                               "\"CONTAINER\"\n" +
+                                                               "        },\n" +
+                                                               "        \"id\": \"2\",\n" +
+                                                               "        \"vertex\": true\n" +
+                                                               "      }]}"));
 
         verify(argoKubernetesService).createOrReplaceWorkflowTemplate(anyString(), any(WorkflowTemplate.class));
     }
@@ -464,6 +660,7 @@ class PipelineServiceTest {
             .when(argoKubernetesService)
             .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
         when(argoKubernetesService.getConfigMap(anyString(), anyString())).thenReturn(new ConfigMap());
+        when(projectService.getParams(anyString())).thenReturn(ParamsDto.fromSecret(new Secret()).build());
 
         pipelineService.update("projectId", "id", GRAPH, "newName");
 
