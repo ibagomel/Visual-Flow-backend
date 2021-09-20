@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.client.ResourceNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
@@ -172,6 +173,15 @@ public class GraphDto {
             !nodeValues.containsKey(PipelineService.REQUESTS_MEMORY) ||
             !nodeValues.containsKey(PipelineService.REQUESTS_CPU)) {
             throw new BadRequestException("Container's resource configuration has to be specified");
+        }
+        try {
+            Quantity.parse(nodeValues.get(PipelineService.LIMITS_MEMORY));
+            Quantity.parse(nodeValues.get(PipelineService.LIMITS_CPU));
+            Quantity.parse(nodeValues.get(PipelineService.REQUESTS_MEMORY));
+            Quantity.parse(nodeValues.get(PipelineService.REQUESTS_CPU));
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("One setting from the resource configuration has been provided in " +
+                                              "incorrect format", e);
         }
         if (!nodeValues.containsKey(Constants.NODE_IMAGE_PULL_SECRET_TYPE)) {
             throw new BadRequestException("Image pull secret type is missing");

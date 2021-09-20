@@ -100,8 +100,8 @@ public class ContainerStageConfig {
             .imagePullPolicy(node.getValue().get(NODE_IMAGE_PULL_POLICY))
             .requestCpu(node.getValue().get(PipelineService.REQUESTS_CPU))
             .limitsCpu(node.getValue().get(PipelineService.LIMITS_CPU))
-            .limitsMemory(node.getValue().get(PipelineService.LIMITS_MEMORY) + Constants.GIGABYTE_QUANTITY)
-            .requestMemory(node.getValue().get(PipelineService.REQUESTS_MEMORY) + Constants.GIGABYTE_QUANTITY)
+            .limitsMemory(node.getValue().get(PipelineService.LIMITS_MEMORY))
+            .requestMemory(node.getValue().get(PipelineService.REQUESTS_MEMORY))
             .mountProjectParams(Boolean.parseBoolean(node.getValue().get(Constants.NODE_MOUNT_PROJECT_PARAMS)))
             .imagePullSecretType(ImagePullSecretType.valueOf(node
                                                                  .getValue()

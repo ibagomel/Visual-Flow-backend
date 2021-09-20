@@ -76,6 +76,12 @@ job:
     apiToken: ${SLACK_API_TOKEN}                  # API token for slack app
 argo:
   serverUrl: ${ARGO_SERVER_URL}                   # URL of argo server connected to Kubernetes
+  limits:                                         # limits resource quota for argo executor
+      cpu: 0.5
+      memory: 512Mi
+  requests:                                       # requests resource quota for argo executor
+    cpu: 0.1
+    memory: 64Mi
 # Kubernetes Client Http Logs
 # enables logging for kubernetes client
 # feel free to comment the whole block out if you don't need it

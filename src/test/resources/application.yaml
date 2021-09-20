@@ -54,3 +54,9 @@ job:
     apiToken: test
 argo:
   serverUrl: test
+  limits:
+    cpu: 0.5
+    memory: 512Mi
+  requests:
+    cpu: 0.1
+    memory: 64Mi

@@ -31,11 +31,22 @@ import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import java.util.List;
 import java.util.Map;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
+@Getter
 public class ArgoKubernetesService extends KubernetesService {
+
+    @Value("${argo.requests.cpu}")
+    private String argoExecutorRequestsCpu;
+    @Value("${argo.requests.memory}")
+    private String argoExecutorRequestsMemory;
+    @Value("${argo.limits.cpu}")
+    private String argoExecutorLimitsCpu;
+    @Value("${argo.limits.memory}")
+    private String argoExecutorLimitsMemory;
 
     public ArgoKubernetesService(
         NamespacedKubernetesClient client,

@@ -51,6 +51,9 @@ import io.argoproj.workflow.models.WorkflowSuspendRequest;
 import io.argoproj.workflow.models.WorkflowTerminateRequest;
 import io.fabric8.kubernetes.api.model.ConfigMap;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import io.fabric8.kubernetes.api.model.Quantity;
+import io.fabric8.kubernetes.api.model.ResourceQuota;
+import io.fabric8.kubernetes.api.model.ResourceQuotaStatus;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.SecretBuilder;
 import io.fabric8.kubernetes.client.ResourceNotFoundException;
@@ -145,8 +148,8 @@ class PipelineServiceTest {
 
     @Test
     void testCreate() {
-        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"), anyString()))
-            .thenThrow(new ResourceNotFoundException(""));
+        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"),
+                                                       anyString())).thenThrow(new ResourceNotFoundException(""));
         doNothing()
             .when(argoKubernetesService)
             .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
@@ -159,8 +162,8 @@ class PipelineServiceTest {
 
     @Test
     void testCreateWithContainerStage() throws JsonProcessingException {
-        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"), anyString()))
-            .thenThrow(new ResourceNotFoundException(""));
+        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"),
+                                                       anyString())).thenThrow(new ResourceNotFoundException(""));
         doNothing()
             .when(argoKubernetesService)
             .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
@@ -203,8 +206,8 @@ class PipelineServiceTest {
 
     @Test
     void testCreateWithContainerStageWithCommand() throws JsonProcessingException {
-        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"), anyString()))
-            .thenThrow(new ResourceNotFoundException(""));
+        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"),
+                                                       anyString())).thenThrow(new ResourceNotFoundException(""));
         doNothing()
             .when(argoKubernetesService)
             .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
@@ -249,14 +252,14 @@ class PipelineServiceTest {
 
     @Test
     void testCreateWithContainerStageWithPrivateImageAndNewSecret() throws JsonProcessingException {
-        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"), anyString()))
-            .thenThrow(new ResourceNotFoundException(""));
+        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"),
+                                                       anyString())).thenThrow(new ResourceNotFoundException(""));
         doNothing()
             .when(argoKubernetesService)
             .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
         when(projectService.getParams(anyString())).thenReturn(ParamsDto.fromSecret(new Secret()).build());
-        when(argoKubernetesService.getSecret(anyString(), anyString()))
-            .thenThrow(new ResourceNotFoundException(""));
+        when(argoKubernetesService.getSecret(anyString(),
+                                             anyString())).thenThrow(new ResourceNotFoundException(""));
         pipelineService.create("projectId",
                                "name",
                                new ObjectMapper().readTree("{\"graph\": [\n" +
@@ -301,14 +304,18 @@ class PipelineServiceTest {
 
     @Test
     void testCreateWithContainerStageWithPrivateImageAndProvidedSecret() throws JsonProcessingException {
-        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"), anyString()))
-            .thenThrow(new ResourceNotFoundException(""));
+        when(argoKubernetesService.getWorkflowTemplate(eq("projectId"),
+                                                       anyString())).thenThrow(new ResourceNotFoundException(""));
         doNothing()
             .when(argoKubernetesService)
             .createOrReplaceWorkflowTemplate(eq("projectId"), any(WorkflowTemplate.class));
         when(projectService.getParams(anyString())).thenReturn(ParamsDto.fromSecret(new Secret()).build());
-        when(argoKubernetesService.getSecret(eq("projectId"), eq("existingSecret")))
-            .thenReturn(new SecretBuilder().withNewMetadata().withNamespace("projectId").endMetadata().build());
+        when(argoKubernetesService.getSecret(eq("projectId"), eq("existingSecret"))).thenReturn(new SecretBuilder()
+                                                                                                    .withNewMetadata()
+                                                                                                    .withNamespace(
+                                                                                                        "projectId")
+                                                                                                    .endMetadata()
+                                                                                                    .build());
         pipelineService.create("projectId",
                                "name",
                                new ObjectMapper().readTree("{\"graph\": [\n" +
@@ -349,15 +356,17 @@ class PipelineServiceTest {
 
     @Test
     void testCreateNotUniqueName() {
-        when(argoKubernetesService.getWorkflowTemplatesByLabels("projectId", Map.of(Constants.NAME, "name")))
-            .thenReturn(List.of(new WorkflowTemplate(), new WorkflowTemplate()));
+        when(argoKubernetesService.getWorkflowTemplatesByLabels("projectId",
+                                                                Map.of(Constants.NAME,
+                                                                       "name"))).thenReturn(List.of(new WorkflowTemplate(),
+                                                                                                    new WorkflowTemplate()));
         assertThrows(BadRequestException.class,
                      () -> pipelineService.create("projectId", "name", GRAPH),
                      "Expected exception must be thrown");
 
 
-        verify(argoKubernetesService, never())
-            .createOrReplaceWorkflowTemplate(anyString(), any(WorkflowTemplate.class));
+        verify(argoKubernetesService, never()).createOrReplaceWorkflowTemplate(anyString(),
+                                                                               any(WorkflowTemplate.class));
     }
 
     @Test
@@ -381,8 +390,10 @@ class PipelineServiceTest {
                                                 "workflowtemplates",
                                                 "argoproj.io",
                                                 Constants.UPDATE_ACTION)).thenReturn(true);
-        when(argoKubernetesService.isAccessible("projectId", "workflows", "argoproj.io", Constants.CREATE_ACTION))
-            .thenReturn(true);
+        when(argoKubernetesService.isAccessible("projectId",
+                                                "workflows",
+                                                "argoproj.io",
+                                                Constants.CREATE_ACTION)).thenReturn(true);
 
         PipelineResponseDto expected = ((PipelineResponseDto) new PipelineResponseDto()
             .id("id")
@@ -463,8 +474,10 @@ class PipelineServiceTest {
                                                 "workflowtemplates",
                                                 "argoproj.io",
                                                 Constants.UPDATE_ACTION)).thenReturn(true);
-        when(argoKubernetesService.isAccessible("projectId", "workflows", "argoproj.io", Constants.CREATE_ACTION))
-            .thenReturn(true);
+        when(argoKubernetesService.isAccessible("projectId",
+                                                "workflows",
+                                                "argoproj.io",
+                                                Constants.CREATE_ACTION)).thenReturn(true);
 
         PipelineOverviewListDto pipelines = pipelineService.getAll("projectId");
 
@@ -553,8 +566,10 @@ class PipelineServiceTest {
                                                 "workflowtemplates",
                                                 "argoproj.io",
                                                 Constants.UPDATE_ACTION)).thenReturn(true);
-        when(argoKubernetesService.isAccessible("projectId", "workflows", "argoproj.io", Constants.CREATE_ACTION))
-            .thenReturn(true);
+        when(argoKubernetesService.isAccessible("projectId",
+                                                "workflows",
+                                                "argoproj.io",
+                                                Constants.CREATE_ACTION)).thenReturn(true);
         PipelineOverviewListDto pipelines = pipelineService.getAll("projectId");
 
         PipelineOverviewDto expected = new PipelineOverviewDto()
@@ -596,8 +611,10 @@ class PipelineServiceTest {
                                                 "workflowtemplates",
                                                 "argoproj.io",
                                                 Constants.UPDATE_ACTION)).thenReturn(true);
-        when(argoKubernetesService.isAccessible("projectId", "workflows", "argoproj.io", Constants.CREATE_ACTION))
-            .thenReturn(true);
+        when(argoKubernetesService.isAccessible("projectId",
+                                                "workflows",
+                                                "argoproj.io",
+                                                Constants.CREATE_ACTION)).thenReturn(true);
 
         PipelineOverviewListDto pipelines = pipelineService.getAll("projectId");
 
@@ -637,8 +654,10 @@ class PipelineServiceTest {
                                                 "workflowtemplates",
                                                 "argoproj.io",
                                                 Constants.UPDATE_ACTION)).thenReturn(true);
-        when(argoKubernetesService.isAccessible("projectId", "workflows", "argoproj.io", Constants.CREATE_ACTION))
-            .thenReturn(true);
+        when(argoKubernetesService.isAccessible("projectId",
+                                                "workflows",
+                                                "argoproj.io",
+                                                Constants.CREATE_ACTION)).thenReturn(true);
 
         PipelineOverviewListDto pipelines = pipelineService.getAll("projectId");
 
@@ -680,6 +699,22 @@ class PipelineServiceTest {
 
     @Test
     void testRun() {
+        when(argoKubernetesService.getArgoExecutorLimitsCpu()).thenReturn("0.1");
+        when(argoKubernetesService.getArgoExecutorLimitsMemory()).thenReturn("100Mi");
+        when(argoKubernetesService.getArgoExecutorRequestsCpu()).thenReturn("0.1");
+        when(argoKubernetesService.getArgoExecutorRequestsMemory()).thenReturn("50Mi");
+        ResourceQuota resourceQuota = new ResourceQuota();
+        ResourceQuotaStatus resourceQuotaStatus = new ResourceQuotaStatus();
+        resourceQuotaStatus.setHard(Map.of(Constants.LIMITS_CPU,
+                                           Quantity.parse("1"),
+                                           Constants.LIMITS_MEMORY,
+                                           Quantity.parse("1G"),
+                                           Constants.REQUESTS_CPU,
+                                           Quantity.parse("1"),
+                                           Constants.REQUESTS_MEMORY,
+                                           Quantity.parse("1G")));
+        resourceQuota.setStatus(resourceQuotaStatus);
+        when(argoKubernetesService.getResourceQuota("projectId", Constants.QUOTA_NAME)).thenReturn(resourceQuota);
         doNothing().when(argoKubernetesService).createOrReplaceWorkflow(eq("projectId"), any(Workflow.class));
         WorkflowTemplate workflowTemplate = new WorkflowTemplate();
         workflowTemplate.setMetadata(new ObjectMetaBuilder()
@@ -689,9 +724,22 @@ class PipelineServiceTest {
                                                            Base64.encodeBase64String(GRAPH.toString().getBytes()))
                                          .addToAnnotations(Constants.LAST_MODIFIED, "lastModified")
                                          .build());
+        DagTemplate dagTemplate = new DagTemplate();
+        Arguments task1Args = new Arguments();
+        task1Args.setParameters(List.of(new Parameter().name(PipelineService.LIMITS_CPU).value("0.1"),
+                                        new Parameter().name(PipelineService.LIMITS_MEMORY).value("300Mi"),
+                                        new Parameter().name(PipelineService.REQUESTS_CPU).value("0.1"),
+                                        new Parameter().name(PipelineService.REQUESTS_MEMORY).value("300Mi")));
+        Arguments task2Args = new Arguments();
+        task2Args.setParameters(List.of(new Parameter().name(PipelineService.LIMITS_CPU).value("0.1"),
+                                        new Parameter().name(PipelineService.LIMITS_MEMORY).value("100Mi"),
+                                        new Parameter().name(PipelineService.REQUESTS_CPU).value("0.1"),
+                                        new Parameter().name(PipelineService.REQUESTS_MEMORY).value("100Mi")));
+        dagTemplate.setTasks(List.of(new DagTask().arguments(task1Args).template("test"),
+                                     new DagTask().arguments(task2Args).template("test2")));
         workflowTemplate.setSpec(new WorkflowTemplateSpec().templates(List.of(new Template()
                                                                                   .name(Constants.DAG_TEMPLATE_NAME)
-                                                                                  .dag(new DagTemplate()))));
+                                                                                  .dag(dagTemplate))));
         when(argoKubernetesService.getWorkflowTemplate(anyString(), anyString())).thenReturn(workflowTemplate);
         pipelineService.run("projectId", "id");
         verify(argoKubernetesService).createOrReplaceWorkflow(eq("projectId"), any(Workflow.class));

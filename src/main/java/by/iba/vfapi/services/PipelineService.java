@@ -68,10 +68,12 @@ import io.argoproj.workflow.models.WorkflowTerminateRequest;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.api.model.Quantity;
+import io.fabric8.kubernetes.api.model.ResourceQuota;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
 import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
 import io.fabric8.kubernetes.client.ResourceNotFoundException;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -82,6 +84,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -495,6 +498,43 @@ public class PipelineService {
     }
 
     /**
+     * Helper method to compare available resources against ones required in pipeline
+     *
+     * @param availableCpu    available cpu in the project(namespace)
+     * @param availableMemory available memory in the project(namespace)
+     * @param neededCpu       needed cpu in cores
+     * @param neededMemory    needed memory in bytes
+     * @param stageType       type of pipeline stage
+     * @param constraintType  limits or requests
+     */
+    private static void compareResourceSettings(
+        BigDecimal availableCpu,
+        BigDecimal availableMemory,
+        BigDecimal neededCpu,
+        BigDecimal neededMemory,
+        String stageType,
+        String constraintType) {
+        if (neededCpu.compareTo(availableCpu) > 0) {
+            throw new BadRequestException(String.format("Project doesn't have enough %s CPU to run %s - (cores) " +
+                                                            "available(excluding resources for argo " +
+                                                            "executor):%s; needed:%s",
+                                                        constraintType,
+                                                        stageType,
+                                                        availableCpu,
+                                                        neededCpu));
+        }
+        if (neededMemory.compareTo(availableMemory) > 0) {
+            throw new BadRequestException(String.format("Project doesn't have enough %s RAM to run %s - (bytes) " +
+                                                            "available(excluding resources for argo " +
+                                                            "executor):%s; needed:%s",
+                                                        constraintType,
+                                                        stageType,
+                                                        availableMemory,
+                                                        neededMemory));
+        }
+    }
+
+    /**
      * Adding parameters to dag tasks.
      *
      * @param workflowTemplate workflowTemplate
@@ -599,8 +639,8 @@ public class PipelineService {
                                         new Env().name("IMAGE_PULL_SECRETS").value(imagePullSecret),
                                         new Env().name("POD_NAMESPACE").value(namespace)))
                            .envFrom(List.of(new EnvFrom().configMapRef(new ConfigMapRef().name(
-                               "{{inputs.parameters" +
-                                   ".configMap}}")),
+                                                "{{inputs.parameters" +
+                                                    ".configMap}}")),
                                             new EnvFrom().secretRef(new SecretRef().name(ParamsDto.SECRET_NAME)))))
             .metadata(new TemplateMeta().labels(Map.of(Constants.JOB_ID_LABEL,
                                                        "{{inputs.parameters.configMap}}")));
@@ -718,12 +758,8 @@ public class PipelineService {
             .entrySet()
             .stream()
             .filter((Map.Entry<GraphDto.NodeDto, ContainerStageConfig> p) -> p.getValue().getSecret() != null)
-            .forEach((Map.Entry<GraphDto.NodeDto, ContainerStageConfig> p) -> pullSecrets.add(new ImagePullSecret()
-                                                                                                  .name(p
-                                                                                                            .getValue()
-                                                                                                            .getSecret()
-                                                                                                            .getMetadata()
-                                                                                                            .getName())));
+            .forEach((Map.Entry<GraphDto.NodeDto, ContainerStageConfig> p) -> pullSecrets.add(new ImagePullSecret().name(
+                p.getValue().getSecret().getMetadata().getName())));
 
         List<Template> templates = new ArrayList<>();
         templates.add(createNotificationTemplate());
@@ -803,7 +839,6 @@ public class PipelineService {
                                                                                      definition));
         return id;
     }
-
 
     /**
      * Get pipeline data.
@@ -890,8 +925,8 @@ public class PipelineService {
         WorkflowSpec spec = workflow.getSpec();
         Map<Predicate<WorkflowSpec>, String> customStatusMap = Map.of((WorkflowSpec::isSuspend),
                                                                       K8sUtils.SUSPENDED_STATUS,
-                                                                      ((WorkflowSpec s) -> K8sUtils.SHUTDOWN_TERMINATE
-                                                                          .equals(s.getShutdown())),
+                                                                      ((WorkflowSpec s) -> K8sUtils.SHUTDOWN_TERMINATE.equals(
+                                                                          s.getShutdown())),
                                                                       K8sUtils.TERMINATED_STATUS,
                                                                       ((WorkflowSpec s) -> K8sUtils.SHUTDOWN_STOP.equals(
                                                                           s.getShutdown())),
@@ -902,8 +937,8 @@ public class PipelineService {
                 .stream()
                 .filter(predicateStringEntry -> predicateStringEntry.getKey().test(spec))
                 .findFirst();
-            customStatus.ifPresent((Map.Entry<Predicate<WorkflowSpec>, String> predicateStringEntry) -> runtimeData
-                .setStatus(predicateStringEntry.getValue()));
+            customStatus.ifPresent((Map.Entry<Predicate<WorkflowSpec>, String> predicateStringEntry) -> runtimeData.setStatus(
+                predicateStringEntry.getValue()));
         }
         return runtimeData;
     }
@@ -1021,7 +1056,6 @@ public class PipelineService {
                                                                          "true")));
     }
 
-
     /**
      * Running pipeline.
      *
@@ -1031,6 +1065,8 @@ public class PipelineService {
     public void run(String projectId, String id) {
         WorkflowTemplate workflowTemplate = argoKubernetesService.getWorkflowTemplate(projectId, id);
         addParametersToDagTasks(workflowTemplate, projectId);
+        ResourceQuota quota = argoKubernetesService.getResourceQuota(projectId, Constants.QUOTA_NAME);
+        validateResourceAvailability(quota, workflowTemplate);
         argoKubernetesService.createOrReplaceWorkflowTemplate(projectId, workflowTemplate);
         argoKubernetesService.deleteWorkflow(projectId, id);
         Workflow workflow = new Workflow();
@@ -1038,7 +1074,6 @@ public class PipelineService {
         workflow.setSpec(new WorkflowSpec().workflowTemplateRef(new WorkflowTemplateRef().name(id)));
         argoKubernetesService.createOrReplaceWorkflow(projectId, workflow);
     }
-
 
     /**
      * Suspend pipeline.
@@ -1189,6 +1224,104 @@ public class PipelineService {
         } catch (ApiException e) {
             throw new ArgoClientException(e);
         }
+    }
+
+    /**
+     * Validates resources requested by pipeline against what is available in the namespace(project)
+     *
+     * @param quota            resource quota in the namespace
+     * @param workflowTemplate workflow template
+     */
+    private void validateResourceAvailability(
+        ResourceQuota quota, WorkflowTemplate workflowTemplate) {
+        BigDecimal executorLimitsCpu =
+            Quantity.getAmountInBytes(Quantity.parse(argoKubernetesService.getArgoExecutorLimitsCpu()));
+        BigDecimal executorLimitsMemory =
+            Quantity.getAmountInBytes(Quantity.parse(argoKubernetesService.getArgoExecutorLimitsMemory()));
+        BigDecimal executorRequestsCpu =
+            Quantity.getAmountInBytes(Quantity.parse(argoKubernetesService.getArgoExecutorRequestsCpu()));
+        BigDecimal executorRequestsMemory =
+            Quantity.getAmountInBytes(Quantity.parse(argoKubernetesService.getArgoExecutorRequestsMemory()));
+        BigDecimal limitsCpu = Quantity
+            .getAmountInBytes(quota.getStatus().getHard().get(Constants.LIMITS_CPU))
+            .subtract(executorLimitsCpu);
+        BigDecimal limitsMemory = Quantity
+            .getAmountInBytes(quota.getStatus().getHard().get(Constants.LIMITS_MEMORY))
+            .subtract(executorLimitsMemory);
+        BigDecimal requestsCpu = Quantity
+            .getAmountInBytes(quota.getStatus().getHard().get(Constants.REQUESTS_CPU))
+            .subtract(executorRequestsCpu);
+        BigDecimal requestsMemory = Quantity
+            .getAmountInBytes(quota.getStatus().getHard().get(Constants.REQUESTS_MEMORY))
+            .subtract(executorRequestsMemory);
+        workflowTemplate
+            .getSpec()
+            .getTemplates()
+            .stream()
+            .filter((Template temp) -> NOTIFICATION_TEMPLATE_NAME.equals(temp.getName()))
+            .findAny()
+            .ifPresent((Template notificationTemplate) -> {
+                ResourceRequirements resources = notificationTemplate.getContainer().getResources();
+                Map<String, Quantity> limits = resources.getLimits();
+                Map<String, Quantity> requests = resources.getRequests();
+                BigDecimal limMemory = Quantity.getAmountInBytes(limits.get(Constants.MEMORY_FIELD));
+                BigDecimal limCpu = Quantity.getAmountInBytes(limits.get(Constants.CPU_FIELD));
+                BigDecimal reqMemory = Quantity.getAmountInBytes(requests.get(Constants.MEMORY_FIELD));
+                BigDecimal reqCpu = Quantity.getAmountInBytes(requests.get(Constants.CPU_FIELD));
+                compareResourceSettings(limitsCpu,
+                                        limitsMemory,
+                                        limCpu,
+                                        limMemory,
+                                        "notification stage",
+                                        "limits");
+                compareResourceSettings(requestsCpu,
+                                        requestsMemory,
+                                        reqCpu,
+                                        reqMemory,
+                                        "notification stage",
+                                        "request");
+            });
+        workflowTemplate
+            .getSpec()
+            .getTemplates()
+            .stream()
+            .map(Template::getDag)
+            .filter(Objects::nonNull)
+            .findAny()
+            .map(DagTemplate::getTasks)
+            .ifPresentOrElse((List<DagTask> dagTasks) -> dagTasks.forEach((DagTask dagTask) -> {
+                if (NOTIFICATION_TEMPLATE_NAME.equals(dagTask.getTemplate())) {
+                    return;
+                }
+                Map<String, Parameter> parameters = dagTask
+                    .getArguments()
+                    .getParameters()
+                    .stream()
+                    .collect(Collectors.toMap(Parameter::getName, Function.identity()));
+                BigDecimal stageLimitMemory =
+                    Quantity.getAmountInBytes(Quantity.parse(parameters.get(LIMITS_MEMORY).getValue()));
+                BigDecimal stageLimitCpu =
+                    Quantity.getAmountInBytes(Quantity.parse(parameters.get(LIMITS_CPU).getValue()));
+                BigDecimal stageRequestMemory =
+                    Quantity.getAmountInBytes(Quantity.parse(parameters.get(REQUESTS_MEMORY).getValue()));
+                BigDecimal stageRequestCpu =
+                    Quantity.getAmountInBytes(Quantity.parse(parameters.get(REQUESTS_CPU).getValue()));
+                compareResourceSettings(limitsCpu,
+                                        limitsMemory,
+                                        stageLimitCpu,
+                                        stageLimitMemory,
+                                        dagTask.getTemplate(),
+                                        "limits");
+                compareResourceSettings(requestsCpu,
+                                        requestsMemory,
+                                        stageRequestCpu,
+                                        stageRequestMemory,
+                                        dagTask.getTemplate(),
+                                        "request");
+            }), () -> {
+                throw new BadRequestException(String.format("Dag template was not found for pipeline %s",
+                                                            workflowTemplate.getMetadata().getName()));
+            });
     }
 
     /**
