@@ -46,14 +46,12 @@ import io.fabric8.kubernetes.api.model.metrics.v1beta1.PodMetrics;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.ResourceNotFoundException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import javax.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -67,7 +65,6 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 public class JobService {
-    private static final String NO_POD_MESSAGE = "Pod doesn't exist";
 
     private final String jobImage;
     private final String jobMaster;
@@ -310,42 +307,6 @@ public class JobService {
     }
 
     /**
-     * Getting job logs.
-     *
-     * @param projectId project id
-     * @param id        job id
-     * @return list of log objects
-     */
-    public List<LogDto> getLogs(final String projectId, final String id) {
-        try {
-            String logs = kubernetesService.getLogs(projectId, id);
-            String[] logItems = logs.split("\n");
-            List<LogDto> logResults = new ArrayList<>();
-
-            int logIndex = 0;
-            for (String logItem : logItems) {
-                Matcher matcher = K8sUtils.LOG_PATTERN.matcher(logItem);
-                if (matcher.matches()) {
-                    logResults.add(LogDto.fromMatcher(matcher));
-                    logIndex++;
-                } else if (logIndex != 0) {
-                    LogDto lastLog = logResults.get(logIndex - 1);
-                    logResults.set(logIndex - 1, lastLog.withMessage(lastLog.getMessage() + "\n" + logItem));
-                }
-            }
-
-            if (logResults.isEmpty()) {
-                logResults.add(LogDto.builder().message(logs).build());
-            }
-
-            return logResults;
-        } catch (ResourceNotFoundException e) {
-            LOGGER.info(NO_POD_MESSAGE, e);
-            return Collections.emptyList();
-        }
-    }
-
-    /**
      * Configuration and running job.
      *
      * @param projectId project id
@@ -415,7 +376,7 @@ public class JobService {
                                                                    Constants.PIPELINE_JOB_ID_LABEL,
                                                                    Constants.NOT_PIPELINE_FLAG));
         } catch (ResourceNotFoundException e) {
-            LOGGER.info(NO_POD_MESSAGE, e);
+            LOGGER.info(KubernetesService.NO_POD_MESSAGE, e);
         }
 
         kubernetesService.createPod(projectId, pod);
@@ -436,5 +397,16 @@ public class JobService {
         } else {
             throw new ConflictException("Job is not running");
         }
+    }
+
+    /**
+     * Retrieve job logs
+     *
+     * @param projectId project id
+     * @param id        job id
+     * @return list of log entries
+     */
+    public List<LogDto> getJobLogs(String projectId, String id) {
+        return kubernetesService.getParsedPodLogs(projectId, id);
     }
 }

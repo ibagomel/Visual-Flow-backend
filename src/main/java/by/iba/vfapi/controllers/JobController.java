@@ -149,7 +149,7 @@ public class JobController {
     @GetMapping("{projectId}/job/{id}/logs")
     public List<LogDto> getLogs(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Receiving job '{}' logs in project '{}'", id, projectId);
-        return jobService.getLogs(projectId, id);
+        return jobService.getJobLogs(projectId, id);
     }
 
     /**

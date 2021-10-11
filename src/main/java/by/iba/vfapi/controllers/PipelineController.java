@@ -20,6 +20,7 @@
 package by.iba.vfapi.controllers;
 
 import by.iba.vfapi.config.OpenApiConfig;
+import by.iba.vfapi.dto.LogDto;
 import by.iba.vfapi.dto.pipelines.CronPipelineDto;
 import by.iba.vfapi.dto.pipelines.PipelineOverviewListDto;
 import by.iba.vfapi.dto.pipelines.PipelineRequestDto;
@@ -30,6 +31,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import javax.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -282,5 +284,25 @@ public class PipelineController {
     public CronPipelineDto getCronPipeline(@PathVariable String projectId, @PathVariable String id) {
         LOGGER.info("Receiving cron on pipeline '{}' in project '{}'", id, projectId);
         return pipelineService.getCronById(projectId, id);
+    }
+
+    /**
+     * Getting custom container logs.
+     *
+     * @param projectId  project id
+     * @param pipelineId pipeline id
+     * @param nodeId node id
+     * @return ResponseEntity with list of logs objects
+     */
+    @Operation(summary = "Get custom container logs", description = "Get all logs for a specific custom container")
+    @GetMapping("{projectId}/pipeline/{pipelineId}/{nodeId}/logs")
+    public List<LogDto> getCustomContainerLogs(
+        @PathVariable String projectId, @PathVariable String pipelineId, @PathVariable String nodeId) {
+        LOGGER.info(
+            "Receiving custom container in project '{}', pipeline '{}' at node '{}'",
+            projectId,
+            pipelineId,
+            nodeId);
+        return pipelineService.getCustomContainerLogs(projectId, pipelineId, nodeId);
     }
 }

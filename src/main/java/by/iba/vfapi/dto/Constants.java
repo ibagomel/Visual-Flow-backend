@@ -105,4 +105,5 @@ public final class Constants {
     public static final String NODE_CONTAINER_NAME = "name";
     public static final String NODE_IMAGE_PULL_SECRET_TYPE = "imagePullSecretType";
     public static final String NODE_IMAGE_PULL_SECRET_NAME = "imagePullSecretName";
+    public static final String CONTAINER_NODE_ID = "containerNodeId";
 }

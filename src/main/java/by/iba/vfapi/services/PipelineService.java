@@ -21,6 +21,7 @@ package by.iba.vfapi.services;
 
 import by.iba.vfapi.dto.Constants;
 import by.iba.vfapi.dto.GraphDto;
+import by.iba.vfapi.dto.LogDto;
 import by.iba.vfapi.dto.pipelines.CronPipelineDto;
 import by.iba.vfapi.dto.pipelines.PipelineOverviewDto;
 import by.iba.vfapi.dto.pipelines.PipelineOverviewListDto;
@@ -99,11 +100,13 @@ import org.apache.commons.text.StringEscapeUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import static by.iba.vfapi.dto.Constants.CONTAINER_NODE_ID;
 import static by.iba.vfapi.dto.Constants.NODE_JOB_ID;
 import static by.iba.vfapi.dto.Constants.NODE_OPERATION;
 import static by.iba.vfapi.dto.Constants.NODE_OPERATION_CONTAINER;
 import static by.iba.vfapi.dto.Constants.NODE_OPERATION_JOB;
 import static by.iba.vfapi.dto.Constants.NODE_OPERATION_NOTIFICATION;
+import static by.iba.vfapi.dto.Constants.PIPELINE_ID_LABEL;
 
 /**
  * PipelineService class.
@@ -187,10 +190,11 @@ public class PipelineService {
      * @param name    task name
      * @param depends task's depends
      * @param config  container stage config
+     * @param nodeId  node id
      * @return task
      */
     private static DagTask createContainerDagTask(
-        String name, String depends, ContainerStageConfig config) {
+        String name, String depends, ContainerStageConfig config, String nodeId, String pipelineId) {
         Arguments arguments = new Arguments()
             .addParametersItem(new Parameter().name(IMAGE_PULL_POLICY).value(config.getImagePullPolicy()))
             .addParametersItem(new Parameter().name(IMAGE_LINK).value(config.getImageLink()))
@@ -205,7 +209,10 @@ public class PipelineService {
                                    .value(Quantity.parse(config.getRequestCpu()).toString()))
             .addParametersItem(new Parameter()
                                    .name(REQUESTS_MEMORY)
-                                   .value(Quantity.parse(config.getRequestMemory()).toString()));
+                                   .value(Quantity.parse(config.getRequestMemory()).toString()))
+            .addParametersItem(new Parameter().name(Constants.CONTAINER_NODE_ID).value(nodeId))
+            .addParametersItem(new Parameter().name(Constants.PIPELINE_ID_LABEL).value(pipelineId))
+            .addParametersItem(new Parameter().name(GRAPH_ID).value(nodeId));
         boolean withCustomCommand = config.getStartCommand() != null && !config.getStartCommand().isEmpty();
         String template = composeContainerTemplateName(withCustomCommand, config.isMountProjectParams());
         if (withCustomCommand) {
@@ -276,7 +283,8 @@ public class PipelineService {
      * @param nodes list of GraphDto.NodeDto
      * @param edges list of GraphDto.EdgeDto
      */
-    private static void replaceIds(Iterable<GraphDto.NodeDto> nodes, Iterable<GraphDto.EdgeDto> edges) {
+    private static void replaceIds(
+        Iterable<GraphDto.NodeDto> nodes, Iterable<GraphDto.EdgeDto> edges) {
         for (GraphDto.NodeDto node : nodes) {
             String id = node.getId();
             String generatedId = K8sUtils.getKubeCompatibleUUID();
@@ -303,7 +311,9 @@ public class PipelineService {
      * @return dag template
      */
     private static DagTemplate createDagFlow(
-        GraphDto graphDto, Map<GraphDto.NodeDto, ContainerStageConfig> containerStageConfig) {
+        GraphDto graphDto,
+        Map<GraphDto.NodeDto, ContainerStageConfig> containerStageConfig,
+        WorkflowTemplate workflowTemplate) {
         List<GraphDto.NodeDto> nodes = graphDto.getNodes();
         List<GraphDto.EdgeDto> edges = graphDto.getEdges();
         replaceIds(nodes, edges);
@@ -353,7 +363,11 @@ public class PipelineService {
                         throw new InternalProcessingException("Cannot find container config for a node " +
                                                                   node.getId());
                     }
-                    dagTask = createContainerDagTask(id, depends, nodeConfig.get());
+                    dagTask = createContainerDagTask(id,
+                                                     depends,
+                                                     nodeConfig.get(),
+                                                     node.getValue().get(id),
+                                                     workflowTemplate.getMetadata().getName());
                     break;
                 default:
                     throw new BadRequestException("Unknown operation type");
@@ -442,8 +456,10 @@ public class PipelineService {
      * @return Template with dag
      */
     private static Template createTemplateWithDag(
-        GraphDto graphDto, Map<GraphDto.NodeDto, ContainerStageConfig> containerStageConfig) {
-        DagTemplate dagFlow = createDagFlow(graphDto, containerStageConfig);
+        GraphDto graphDto,
+        Map<GraphDto.NodeDto, ContainerStageConfig> containerStageConfig,
+        WorkflowTemplate workflowTemplate) {
+        DagTemplate dagFlow = createDagFlow(graphDto, containerStageConfig, workflowTemplate);
         return new Template().name(Constants.DAG_TEMPLATE_NAME).dag(dagFlow);
     }
 
@@ -661,7 +677,10 @@ public class PipelineService {
             .addParametersItem(new Parameter().name(REQUESTS_CPU))
             .addParametersItem(new Parameter().name(REQUESTS_MEMORY))
             .addParametersItem(new Parameter().name(IMAGE_LINK))
-            .addParametersItem(new Parameter().name(IMAGE_PULL_POLICY));
+            .addParametersItem(new Parameter().name(IMAGE_PULL_POLICY))
+            .addParametersItem(new Parameter().name(CONTAINER_NODE_ID))
+            .addParametersItem(new Parameter().name(PIPELINE_ID_LABEL))
+            .addParametersItem(new Parameter().name(GRAPH_ID));
         Container container = new Container()
             .image(String.format(INPUT_PARAMETER_PATTERN, IMAGE_LINK))
             .imagePullPolicy(String.format(INPUT_PARAMETER_PATTERN, IMAGE_PULL_POLICY));
@@ -683,7 +702,13 @@ public class PipelineService {
                                         LIMITS_MEMORY,
                                         REQUESTS_CPU,
                                         REQUESTS_MEMORY))
-            .container(container);
+            .container(container)
+            .metadata(new TemplateMeta().labels(Map.of(Constants.CONTAINER_NODE_ID,
+                                                       String.format(INPUT_PARAMETER_PATTERN,
+                                                                     Constants.CONTAINER_NODE_ID),
+                                                       Constants.PIPELINE_ID_LABEL,
+                                                       String.format(INPUT_PARAMETER_PATTERN,
+                                                                     Constants.PIPELINE_ID_LABEL))));
     }
 
     /**
@@ -768,7 +793,7 @@ public class PipelineService {
         templates.add(createContainerTemplate(false, true));
         templates.add(createContainerTemplate(true, false));
         templates.add(createContainerTemplate(true, true));
-        templates.add(createTemplateWithDag(graphDto, containerStageConfig));
+        templates.add(createTemplateWithDag(graphDto, containerStageConfig, workflowTemplate));
 
         workflowTemplate.setSpec(new WorkflowTemplateSpec()
                                      .serviceAccountName(serviceAccount)
@@ -1197,6 +1222,23 @@ public class PipelineService {
                           (String pId, String i) -> apiInstance.workflowServiceRetryWorkflow(pId,
                                                                                              i,
                                                                                              new WorkflowRetryRequest()));
+    }
+
+    /**
+     * Retrieve custom container logs
+     *
+     * @param projectId  project id
+     * @param pipelineId pipeline id
+     * @param nodeId     node id
+     * @return list of log entries
+     */
+    public List<LogDto> getCustomContainerLogs(String projectId, String pipelineId, String nodeId) {
+        return KubernetesService.getParsedLogs(() -> argoKubernetesService.getPodLogsByLabels(projectId,
+                                                                                              Map.of(
+                                                                                                  CONTAINER_NODE_ID,
+                                                                                                  nodeId,
+                                                                                                  PIPELINE_ID_LABEL,
+                                                                                                  pipelineId)));
     }
 
     /**

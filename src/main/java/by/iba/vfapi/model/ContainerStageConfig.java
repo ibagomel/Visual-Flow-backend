@@ -34,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.validation.Valid;
@@ -41,6 +42,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
 
 import static by.iba.vfapi.dto.Constants.NODE_IMAGE_LINK;
 import static by.iba.vfapi.dto.Constants.NODE_IMAGE_PULL_POLICY;
@@ -98,11 +100,14 @@ public class ContainerStageConfig {
             .builder()
             .imageLink(tryToFetchFromParams(node.getValue().get(NODE_IMAGE_LINK), projectParams))
             .imagePullPolicy(node.getValue().get(NODE_IMAGE_PULL_POLICY))
-            .requestCpu(node.getValue().get(PipelineService.REQUESTS_CPU))
-            .limitsCpu(node.getValue().get(PipelineService.LIMITS_CPU))
+            .requestCpu(StringUtils.stripEnd(node.getValue().get(PipelineService.REQUESTS_CPU), "cC"))
+            .limitsCpu(StringUtils.stripEnd(node.getValue().get(PipelineService.LIMITS_CPU), "cC"))
             .limitsMemory(node.getValue().get(PipelineService.LIMITS_MEMORY))
             .requestMemory(node.getValue().get(PipelineService.REQUESTS_MEMORY))
-            .mountProjectParams(Boolean.parseBoolean(node.getValue().get(Constants.NODE_MOUNT_PROJECT_PARAMS)))
+            .mountProjectParams(Optional
+                                    .ofNullable(node.getValue().get(Constants.NODE_MOUNT_PROJECT_PARAMS))
+                                    .map(Boolean::parseBoolean)
+                                    .orElse(false))
             .imagePullSecretType(ImagePullSecretType.valueOf(node
                                                                  .getValue()
                                                                  .get(Constants.NODE_IMAGE_PULL_SECRET_TYPE)));

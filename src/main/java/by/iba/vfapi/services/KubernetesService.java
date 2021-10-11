@@ -20,6 +20,7 @@
 package by.iba.vfapi.services;
 
 import by.iba.vfapi.dto.Constants;
+import by.iba.vfapi.dto.LogDto;
 import by.iba.vfapi.dto.projects.AccessTableDto;
 import by.iba.vfapi.exceptions.InternalProcessingException;
 import by.iba.vfapi.model.auth.UserInfo;
@@ -50,12 +51,17 @@ import io.fabric8.kubernetes.client.RequestConfigBuilder;
 import io.fabric8.kubernetes.client.ResourceNotFoundException;
 import io.fabric8.kubernetes.client.dsl.FunctionCallable;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -64,9 +70,10 @@ import org.springframework.stereotype.Service;
  * KubernetesService class.
  */
 @Service
+@Slf4j
 public class KubernetesService {
+    public static final String NO_POD_MESSAGE = "Pod doesn't exist";
     private static final String POD_STOP_COMMAND = "pkill -SIGTERM -u job-user";
-
     protected final String appName;
     protected final String appNameLabel;
     protected final NamespacedKubernetesClient client;
@@ -111,6 +118,41 @@ public class KubernetesService {
             }
         }
         return name;
+    }
+
+    /**
+     * Parses provided logs
+     *
+     * @param logSupplier log supplier
+     * @return list of parsed log objects
+     */
+    public static List<LogDto> getParsedLogs(Supplier<String> logSupplier) {
+        try {
+            String logs = logSupplier.get();
+            String[] logItems = logs.split("\n");
+            List<LogDto> logResults = new ArrayList<>();
+
+            int logIndex = 0;
+            for (String logItem : logItems) {
+                Matcher matcher = K8sUtils.LOG_PATTERN.matcher(logItem);
+                if (matcher.matches()) {
+                    logResults.add(LogDto.fromMatcher(matcher));
+                    logIndex++;
+                } else if (logIndex != 0) {
+                    LogDto lastLog = logResults.get(logIndex - 1);
+                    logResults.set(logIndex - 1, lastLog.withMessage(lastLog.getMessage() + "\n" + logItem));
+                }
+            }
+
+            if (logResults.isEmpty()) {
+                logResults.add(LogDto.builder().message(logs).build());
+            }
+
+            return logResults;
+        } catch (ResourceNotFoundException e) {
+            LOGGER.info(NO_POD_MESSAGE, e);
+            return Collections.emptyList();
+        }
     }
 
     protected FunctionCallable<NamespacedKubernetesClient> getAuthenticatedClient(NamespacedKubernetesClient kbClient) {
@@ -742,13 +784,44 @@ public class KubernetesService {
      * @param name        pod name
      * @return logs as a String
      */
-    public String getLogs(final String namespaceId, final String name) {
+    public String getPodLogs(final String namespaceId, final String name) {
         return authenticatedCall(authenticatedClient -> authenticatedClient
             .pods()
             .inNamespace(namespaceId)
             .withName(name)
             .inContainer(K8sUtils.JOB_CONTAINER)
             .getLog());
+    }
+
+    /**
+     * Getting pod logs by labels.
+     *
+     * @param namespaceId namespace name
+     * @param labels      pod labels
+     * @return logs as a String
+     */
+    public String getPodLogsByLabels(final String namespaceId, final Map<String, String> labels) {
+        List<Pod> pods = authenticatedCall(authenticatedClient -> authenticatedClient
+            .pods()
+            .inNamespace(namespaceId)
+            .withLabels(labels)
+            .list()
+            .getItems());
+        if (pods == null || pods.isEmpty()) {
+            throw new ResourceNotFoundException("Cannot find any pods by provided labels");
+        }
+        return getPodLogs(namespaceId, pods.get(0).getMetadata().getName());
+    }
+
+    /**
+     * Getting job logs.
+     *
+     * @param projectId project id
+     * @param id        job id
+     * @return list of log objects
+     */
+    public List<LogDto> getParsedPodLogs(final String projectId, final String id) {
+        return getParsedLogs(() -> getPodLogs(projectId, id));
     }
 
     /**

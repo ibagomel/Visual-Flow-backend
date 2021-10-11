@@ -347,9 +347,10 @@ class JobServiceTest {
                 "AND SOMETHING ELSE\n" +
                 "2020-09-29 11:02:23,197 [shutdown-hook-0] [/] INFO  o.s.jetty.server.AbstractConnector - Stopped";
 
-        when(kubernetesService.getLogs("projectId", "id")).thenReturn(logs);
+        when(kubernetesService.getParsedPodLogs("projectId", "id")).thenCallRealMethod();
+        when(kubernetesService.getPodLogs("projectId", "id")).thenReturn(logs);
 
-        List<LogDto> logsObjects = jobService.getLogs("projectId", "id");
+        List<LogDto> logsObjects = jobService.getJobLogs("projectId", "id");
         LogDto expected = LogDto
             .builder()
             .message("org.apache.spark.SparkContext - Invoking stop() from shutdown hook\nAND SOMETHING ELSE")
@@ -363,23 +364,24 @@ class JobServiceTest {
 
     @Test
     void testGetLogsNotFound() {
-        when(kubernetesService.getLogs("projectId", "id")).thenThrow(ResourceNotFoundException.class);
+        when(kubernetesService.getParsedPodLogs("projectId", "id")).thenCallRealMethod();
+        when(kubernetesService.getPodLogs("projectId", "id")).thenThrow(ResourceNotFoundException.class);
 
-        List<LogDto> logsObjects = jobService.getLogs("projectId", "id");
+        List<LogDto> logsObjects = jobService.getJobLogs("projectId", "id");
 
         assertEquals(0, logsObjects.size(), "Size must be equals to expected");
     }
 
     @Test
     void testGetLogsFailure() {
-        when(kubernetesService.getLogs("projectId", "id")).thenThrow(new KubernetesClientException("Not found",
-                                                                                                   500,
-                                                                                                   null));
+        when(kubernetesService.getParsedPodLogs("projectId", "id")).thenCallRealMethod();
+        when(kubernetesService.getPodLogs("projectId", "id")).thenThrow(new KubernetesClientException("Not found",
+                                                                                                      500,
+                                                                                                      null));
 
-        assertThrows(
-            KubernetesClientException.class,
-            () -> jobService.getLogs("projectId", "id"),
-            "Expected exception must be thrown");
+        assertThrows(KubernetesClientException.class,
+                     () -> jobService.getJobLogs("projectId", "id"),
+                     "Expected exception must be thrown");
     }
 
     @Test
@@ -417,7 +419,9 @@ class JobServiceTest {
         when(kubernetesService.getPodStatus("projectId", "id")).thenReturn(new PodStatusBuilder()
                                                                                .withPhase("Error")
                                                                                .build());
-        assertThrows(ConflictException.class, () -> jobService.stop("projectId", "id"), "Expected exception must be thrown");
+        assertThrows(ConflictException.class,
+                     () -> jobService.stop("projectId", "id"),
+                     "Expected exception must be thrown");
 
         verify(kubernetesService, never()).stopPod("projectId", "id");
     }

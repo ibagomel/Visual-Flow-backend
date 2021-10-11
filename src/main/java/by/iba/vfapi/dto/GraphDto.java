@@ -43,6 +43,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Graph DTO class.
@@ -175,10 +176,12 @@ public class GraphDto {
             throw new BadRequestException("Container's resource configuration has to be specified");
         }
         try {
-            Quantity.parse(nodeValues.get(PipelineService.LIMITS_MEMORY));
-            Quantity.parse(nodeValues.get(PipelineService.LIMITS_CPU));
-            Quantity.parse(nodeValues.get(PipelineService.REQUESTS_MEMORY));
-            Quantity.parse(nodeValues.get(PipelineService.REQUESTS_CPU));
+            Quantity.getAmountInBytes(Quantity.parse(nodeValues.get(PipelineService.LIMITS_MEMORY)));
+            Quantity.getAmountInBytes(Quantity.parse(StringUtils.stripEnd(nodeValues.get(PipelineService.LIMITS_CPU),
+                                                                          "cC")));
+            Quantity.getAmountInBytes(Quantity.parse(nodeValues.get(PipelineService.REQUESTS_MEMORY)));
+            Quantity.getAmountInBytes(Quantity.parse(StringUtils.stripEnd(nodeValues.get(PipelineService.REQUESTS_CPU),
+                                                                          "cC")));
         } catch (IllegalArgumentException e) {
             throw new BadRequestException("One setting from the resource configuration has been provided in " +
                                               "incorrect format", e);
@@ -219,11 +222,6 @@ public class GraphDto {
                 break;
             default:
                 break;
-        }
-
-        if (!nodeValues.containsKey(Constants.NODE_MOUNT_PROJECT_PARAMS) ||
-            nodeValues.get(Constants.NODE_MOUNT_PROJECT_PARAMS).isEmpty()) {
-            throw new BadRequestException("Mount project params option has to be specified");
         }
     }
 
