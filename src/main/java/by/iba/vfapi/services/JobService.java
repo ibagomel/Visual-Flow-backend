@@ -157,6 +157,17 @@ public class JobService {
 
         ConfigMap newConfigMap = jobRequestDto.toConfigMap(id);
         kubernetesService.createOrReplaceConfigMap(projectId, newConfigMap);
+        try {
+            kubernetesService.deletePod(projectId, id);
+            kubernetesService.deletePodsByLabels(projectId, Map.of(Constants.JOB_ID_LABEL,
+                                                                   id,
+                                                                   Constants.SPARK_ROLE_LABEL,
+                                                                   Constants.SPARK_ROLE_EXEC,
+                                                                   Constants.PIPELINE_JOB_ID_LABEL,
+                                                                   Constants.NOT_PIPELINE_FLAG));
+        } catch (ResourceNotFoundException e) {
+            LOGGER.info(KubernetesService.NO_POD_MESSAGE, e);
+        }
     }
 
     /**

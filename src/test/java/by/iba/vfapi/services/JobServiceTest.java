@@ -174,6 +174,13 @@ class JobServiceTest {
     @Test
     void testUpdate() {
         doNothing().when(kubernetesService).createOrReplaceConfigMap(eq("projectId"), any(ConfigMap.class));
+        doNothing().when(kubernetesService).deletePod("projectId","id");
+        doNothing().when(kubernetesService).deletePodsByLabels("projectId", Map.of(Constants.JOB_ID_LABEL,
+                                                                                       "id",
+                                                                                       Constants.SPARK_ROLE_LABEL,
+                                                                                       Constants.SPARK_ROLE_EXEC,
+                                                                                       Constants.PIPELINE_JOB_ID_LABEL,
+                                                                                       Constants.NOT_PIPELINE_FLAG));
 
         jobService.update("id",
                           "projectId",
@@ -185,6 +192,8 @@ class JobServiceTest {
                               .build());
 
         verify(kubernetesService).createOrReplaceConfigMap(anyString(), any(ConfigMap.class));
+        verify(kubernetesService).deletePod(anyString(), anyString());
+        verify(kubernetesService).deletePodsByLabels(anyString(), anyMap());
     }
 
     @Test
@@ -293,7 +302,7 @@ class JobServiceTest {
                                            .builder()
                                            .id("pipelinePodName")
                                            .pipelineId("wf1")
-                                           .startedAt("2020-10-27T10:14:46Z")
+                                           .startedAt("2020-10-27 10:14:46 +0000")
                                            .status("Pending")
                                            .usage(ResourceUsageDto.builder().cpu(0.25f).memory(0.25f).build())
                                            .build()))
