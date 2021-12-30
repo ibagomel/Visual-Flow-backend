@@ -26,6 +26,7 @@ import by.iba.vfapi.dto.pipelines.PipelineOverviewListDto;
 import by.iba.vfapi.dto.pipelines.PipelineRequestDto;
 import by.iba.vfapi.dto.pipelines.PipelineResponseDto;
 import by.iba.vfapi.services.PipelineService;
+import by.iba.vfapi.services.auth.AuthenticationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -56,6 +57,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PipelineController {
 
     private final PipelineService pipelineService;
+    private final AuthenticationService authenticationService;
 
     /**
      * Create pipeline.
@@ -71,10 +73,17 @@ public class PipelineController {
     @PostMapping(value = "{projectId}/pipeline")
     public ResponseEntity<String> create(
         @PathVariable String projectId, @Valid @RequestBody PipelineRequestDto pipelineRequestDto) {
-        LOGGER.info("Creating pipeline in project '{}'", projectId);
+        LOGGER.info(
+            "{} - Creating pipeline in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            projectId);
         String id =
             pipelineService.create(projectId, pipelineRequestDto.getName(), pipelineRequestDto.getDefinition());
-        LOGGER.info("Pipeline '{}' in project '{}' successfully created", id, projectId);
+        LOGGER.info(
+            "{} - Pipeline '{}' in project '{}' successfully created",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         return ResponseEntity.status(HttpStatus.CREATED).body(id);
     }
 
@@ -88,7 +97,11 @@ public class PipelineController {
     @Operation(summary = "Get information about the pipeline", description = "Fetch pipeline's structure by id")
     @GetMapping(value = "{projectId}/pipeline/{id}")
     public PipelineResponseDto get(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Receiving pipeline '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Receiving pipeline '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         return pipelineService.getById(projectId, id);
     }
 
@@ -105,9 +118,17 @@ public class PipelineController {
         @PathVariable String projectId,
         @PathVariable String id,
         @Valid @RequestBody PipelineRequestDto pipelineRequestDto) {
-        LOGGER.info("Updating pipeline '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Updating pipeline '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         pipelineService.update(projectId, id, pipelineRequestDto.getDefinition(), pipelineRequestDto.getName());
-        LOGGER.info("Pipeline '{}' in project '{}' successfully updated", id, projectId);
+        LOGGER.info(
+            "{} - Pipeline '{}' in project '{}' successfully updated",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
 
     }
 
@@ -121,9 +142,17 @@ public class PipelineController {
         {@ApiResponse(responseCode = "204", description = "Indicates successful pipeline deletion")})
     @DeleteMapping(value = "{projectId}/pipeline/{id}")
     public ResponseEntity<Void> delete(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Deleting pipeline '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Deleting pipeline '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         pipelineService.delete(projectId, id);
-        LOGGER.info("Pipeline '{}' in project '{}' successfully deleted", id, projectId);
+        LOGGER.info(
+            "{} - Pipeline '{}' in project '{}' successfully deleted",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         return ResponseEntity.noContent().build();
     }
 
@@ -137,7 +166,10 @@ public class PipelineController {
         " a project")
     @GetMapping("{projectId}/pipeline")
     public PipelineOverviewListDto getAll(@PathVariable String projectId) {
-        LOGGER.info("Receiving all pipelines in project '{}'", projectId);
+        LOGGER.info(
+            "{} - Receiving all pipelines in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            projectId);
         return pipelineService.getAll(projectId);
     }
 
@@ -150,9 +182,17 @@ public class PipelineController {
     @Operation(summary = "Run the pipeline", description = "Create a new Workflow in order to run the pipeline")
     @PostMapping(value = "{projectId}/pipeline/{id}/run")
     public void run(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Running pipeline '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Running pipeline '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         pipelineService.run(projectId, id);
-        LOGGER.info("Pipeline '{}' in project '{}' successfully started", id, projectId);
+        LOGGER.info(
+            "{} - Pipeline '{}' in project '{}' successfully started",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
 
     }
 
@@ -166,9 +206,17 @@ public class PipelineController {
         "pipeline")
     @PostMapping(value = "{projectId}/pipeline/{id}/suspend")
     public void suspend(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Suspending pipeline '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Suspending pipeline '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         pipelineService.suspend(projectId, id);
-        LOGGER.info("Pipeline '{}' in project '{}' has been suspended successfully ", id, projectId);
+        LOGGER.info(
+            "{} - Pipeline '{}' in project '{}' has been suspended successfully ",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
 
     }
 
@@ -182,9 +230,17 @@ public class PipelineController {
         "specific pipeline")
     @PostMapping(value = "{projectId}/pipeline/{id}/terminate")
     public void terminate(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Terminating pipeline '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Terminating pipeline '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         pipelineService.terminate(projectId, id);
-        LOGGER.info("Pipeline '{}' in project '{}' has been terminated successfully ", id, projectId);
+        LOGGER.info(
+            "{} - Pipeline '{}' in project '{}' has been terminated successfully ",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
 
     }
 
@@ -197,9 +253,17 @@ public class PipelineController {
     @Operation(summary = "Stop the pipeline", description = "Stop the Workflow associated with specific pipeline")
     @PostMapping(value = "{projectId}/pipeline/{id}/stop")
     public void stop(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Stopping pipeline '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Stopping pipeline '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         pipelineService.stop(projectId, id);
-        LOGGER.info("Pipeline '{}' in project '{}' has been stopped successfully ", id, projectId);
+        LOGGER.info(
+            "{} - Pipeline '{}' in project '{}' has been stopped successfully ",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
 
     }
 
@@ -213,9 +277,17 @@ public class PipelineController {
         "pipeline")
     @PostMapping(value = "{projectId}/pipeline/{id}/retry")
     public void retry(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Retrying pipeline '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Retrying pipeline '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         pipelineService.retry(projectId, id);
-        LOGGER.info("Pipeline '{}' in project '{}' has been successfully retried", id, projectId);
+        LOGGER.info(
+            "{} - Pipeline '{}' in project '{}' has been successfully retried",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
 
     }
 
@@ -229,9 +301,17 @@ public class PipelineController {
         "pipeline")
     @PostMapping(value = "{projectId}/pipeline/{id}/resume")
     public void resume(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Resuming pipeline '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Resuming pipeline '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         pipelineService.resume(projectId, id);
-        LOGGER.info("Pipeline '{}' in project '{}' resumed successfully ", id, projectId);
+        LOGGER.info(
+            "{} - Pipeline '{}' in project '{}' resumed successfully ",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
 
     }
 
@@ -249,9 +329,17 @@ public class PipelineController {
         @PathVariable String projectId,
         @PathVariable String id,
         @Valid @RequestBody CronPipelineDto cronPipelineDto) {
-        LOGGER.info("Creating cron on pipeline '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Creating cron on pipeline '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         pipelineService.createCron(projectId, id, cronPipelineDto);
-        LOGGER.info("Cron on pipeline '{}' in project '{}' successfully created", id, projectId);
+        LOGGER.info(
+            "{} - Cron on pipeline '{}' in project '{}' successfully created",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
     }
 
     /**
@@ -265,9 +353,17 @@ public class PipelineController {
         " pipeline deletion")})
     @DeleteMapping(value = "{projectId}/pipeline/{id}/cron")
     public ResponseEntity<Void> deleteCron(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Deleting cron on pipeline '{}' in project '{}' ", id, projectId);
+        LOGGER.info(
+            "{} - Deleting cron on pipeline '{}' in project '{}' ",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         pipelineService.deleteCron(projectId, id);
-        LOGGER.info("Cron on pipeline '{}' in project '{}' successfully deleted", id, projectId);
+        LOGGER.info(
+            "{} - Cron on pipeline '{}' in project '{}' successfully deleted",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         return ResponseEntity.noContent().build();
     }
 
@@ -282,7 +378,11 @@ public class PipelineController {
         "existing pipeline")
     @GetMapping(value = "{projectId}/pipeline/{id}/cron", produces = "application/json")
     public CronPipelineDto getCronPipeline(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Receiving cron on pipeline '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Receiving cron on pipeline '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         return pipelineService.getCronById(projectId, id);
     }
 
@@ -291,7 +391,7 @@ public class PipelineController {
      *
      * @param projectId  project id
      * @param pipelineId pipeline id
-     * @param nodeId node id
+     * @param nodeId     node id
      * @return ResponseEntity with list of logs objects
      */
     @Operation(summary = "Get custom container logs", description = "Get all logs for a specific custom container")
@@ -299,7 +399,8 @@ public class PipelineController {
     public List<LogDto> getCustomContainerLogs(
         @PathVariable String projectId, @PathVariable String pipelineId, @PathVariable String nodeId) {
         LOGGER.info(
-            "Receiving custom container in project '{}', pipeline '{}' at node '{}'",
+            "{} - Receiving custom container in project '{}', pipeline '{}' at node '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
             projectId,
             pipelineId,
             nodeId);

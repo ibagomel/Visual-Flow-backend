@@ -75,9 +75,14 @@ public class ProjectController {
     @ApiResponse(responseCode = "201", description = "Id of a new project", content = {@Content(schema =
     @Schema(ref = OpenApiConfig.SCHEMA_PROJECT_ID))})
     public ResponseEntity<String> create(@RequestBody @Valid final ProjectRequestDto projectDto) {
-        LOGGER.info("Creating project");
+        LOGGER.info(
+            "{} - Creating project",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()));
         String id = projectService.create(projectDto);
-        LOGGER.info("Project '{}' successfully created", id);
+        LOGGER.info(
+            "{} - Project '{}' successfully created",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
         return ResponseEntity.status(HttpStatus.CREATED).body(id);
     }
 
@@ -90,7 +95,10 @@ public class ProjectController {
     @Operation(summary = "Get a project", description = "Get information about the project by it's id")
     @GetMapping("/{id}")
     public ProjectResponseDto get(@PathVariable final String id) {
-        LOGGER.info("Receiving project '{}' ", id);
+        LOGGER.info(
+            "{} - Receiving project '{}' ",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
         return projectService.get(id);
     }
 
@@ -103,7 +111,9 @@ public class ProjectController {
         "access to")
     @GetMapping
     public ProjectOverviewListDto getAll() {
-        LOGGER.info("Receiving list of projects");
+        LOGGER.info(
+            "{} - Receiving list of projects",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()));
         return projectService.getAll();
     }
 
@@ -118,9 +128,15 @@ public class ProjectController {
     @PostMapping("/{id}")
     public void update(
         @PathVariable final String id, @RequestBody @Valid final ProjectRequestDto projectDto) {
-        LOGGER.info("Updating project '{}'", id);
+        LOGGER.info(
+            "{} - Updating project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
         projectService.update(id, projectDto);
-        LOGGER.info("Project '{}' description and resource quota successfully updated", id);
+        LOGGER.info(
+            "{} - Project '{}' description and resource quota successfully updated",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
     }
 
     /**
@@ -134,9 +150,15 @@ public class ProjectController {
         "project deletion")})
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable final String id) {
-        LOGGER.info("Deleting project '{}'", id);
+        LOGGER.info(
+            "{} - Deleting project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
         projectService.delete(id);
-        LOGGER.info("Project '{}' successfully deleted", id);
+        LOGGER.info(
+            "{} - Project '{}' successfully deleted",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
         return ResponseEntity.noContent().build();
     }
 
@@ -150,7 +172,10 @@ public class ProjectController {
         "observing k8s pod metrics and quota")
     @GetMapping("/{id}/usage")
     public ResourceUsageDto getUsage(@PathVariable String id) {
-        LOGGER.info("Receiving project '{}' resource utilization", id);
+        LOGGER.info(
+            "{} - Receiving project '{}' resource utilization",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
         return projectService.getUsage(id);
     }
 
@@ -164,9 +189,15 @@ public class ProjectController {
     @PostMapping("/{id}/params")
     public void updateParams(
         @PathVariable final String id, @RequestBody @Valid final List<ParamDto> paramsDto) {
-        LOGGER.info("Updating params for project '{}'", id);
+        LOGGER.info(
+            "{} - Updating params for project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
         projectService.updateParams(id, paramsDto);
-        LOGGER.info("Params for project '{}' successfully updated", id);
+        LOGGER.info(
+            "{} - Params for project '{}' successfully updated",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
     }
 
     /**
@@ -178,7 +209,10 @@ public class ProjectController {
     @Operation(summary = "Get all project params", description = "Fetch all params for given project")
     @GetMapping("/{id}/params")
     public ParamsDto getParams(@PathVariable final String id) {
-        LOGGER.info("Receiving params for the '{}' project", id);
+        LOGGER.info(
+            "{} - Receiving params for the '{}' project",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
         return projectService.getParams(id);
     }
 
@@ -197,10 +231,16 @@ public class ProjectController {
         OpenApiConfig.SCHEMA_PROJECT_ACCESS_GRANTS))})
     public void applyAccessTable(
         @PathVariable final String id, @RequestBody final Map<String, String> accessTable) {
-        LOGGER.info("Applying access grants for the project '{}'", id);
+        LOGGER.info(
+            "{} - Applying access grants for the project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
         UserInfo currentUser = authenticationService.getUserInfo();
         projectService.createAccessTable(id, accessTable, currentUser.getUsername());
-        LOGGER.info("Grants for project '{}' successfully applied", id);
+        LOGGER.info(
+            "{} - Grants for project '{}' successfully applied",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
     }
 
     /**
@@ -213,7 +253,10 @@ public class ProjectController {
         "assigned to them in given project")
     @GetMapping("/{id}/users")
     public AccessTableDto getAccessTable(@PathVariable final String id) {
-        LOGGER.info("Receiving access grants table for the project '{}'", id);
+        LOGGER.info(
+            "{} - Receiving access grants table for the project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id);
         return projectService.getAccessTable(id);
     }
 }

@@ -26,6 +26,7 @@ import by.iba.vfapi.dto.jobs.JobOverviewListDto;
 import by.iba.vfapi.dto.jobs.JobRequestDto;
 import by.iba.vfapi.dto.jobs.JobResponseDto;
 import by.iba.vfapi.services.JobService;
+import by.iba.vfapi.services.auth.AuthenticationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -55,6 +56,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("api/project")
 public class JobController {
     private final JobService jobService;
+    private final AuthenticationService authenticationService;
 
     /**
      * Get all jobs in project.
@@ -65,7 +67,10 @@ public class JobController {
     @Operation(summary = "Get all jobs in a project", description = "Get information about all jobs in a project")
     @GetMapping("{projectId}/job")
     public JobOverviewListDto getAll(@PathVariable String projectId) {
-        LOGGER.info("Receiving all jobs in project '{}'", projectId);
+        LOGGER.info(
+            "{} - Receiving all jobs in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            projectId);
         //TODO replace full method body on "return jobService.getAll(projectId)" and remove method transform
         JobOverviewListDto jobs = jobService.getAll(projectId);
 
@@ -85,9 +90,16 @@ public class JobController {
     @PostMapping("{projectId}/job")
     public ResponseEntity<String> create(
         @PathVariable String projectId, @Valid @RequestBody JobRequestDto jobRequestDto) {
-        LOGGER.info("Creating new job in project '{}'", projectId);
+        LOGGER.info(
+            "{} - Creating new job in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            projectId);
         String id = jobService.create(projectId, jobRequestDto);
-        LOGGER.info("Job '{}' in project '{}' successfully created", id, projectId);
+        LOGGER.info(
+            "{} - Job '{}' in project '{}' successfully created",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         return ResponseEntity.status(HttpStatus.CREATED).body(id);
     }
 
@@ -102,9 +114,17 @@ public class JobController {
     @PostMapping("{projectId}/job/{id}")
     public void update(
         @PathVariable String projectId, @PathVariable String id, @Valid @RequestBody JobRequestDto jobRequestDto) {
-        LOGGER.info("Updating job '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Updating job '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         jobService.update(id, projectId, jobRequestDto);
-        LOGGER.info("Job '{}' in project '{}' successfully updated", id, projectId);
+        LOGGER.info(
+            "{} - Job '{}' in project '{}' successfully updated",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
     }
 
     /**
@@ -117,7 +137,11 @@ public class JobController {
     @Operation(summary = "Get information about the job", description = "Fetch job's structure by id")
     @GetMapping("{projectId}/job/{id}")
     public JobResponseDto get(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Receiving job '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Receiving job '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         return jobService.get(projectId, id);
     }
 
@@ -132,9 +156,17 @@ public class JobController {
         @ApiResponse(responseCode = "204", description = "Indicates successful job deletion")})
     @DeleteMapping("{projectId}/job/{id}")
     public ResponseEntity<Void> delete(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Deleting '{}' job in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Deleting '{}' job in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         jobService.delete(projectId, id);
-        LOGGER.info("Job '{}' in project '{}' successfully deleted", id, projectId);
+        LOGGER.info(
+            "{} - Job '{}' in project '{}' successfully deleted",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         return ResponseEntity.noContent().build();
     }
 
@@ -148,7 +180,11 @@ public class JobController {
     @Operation(summary = "Get job logs", description = "Get all logs for a specific job")
     @GetMapping("{projectId}/job/{id}/logs")
     public List<LogDto> getLogs(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Receiving job '{}' logs in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Receiving job '{}' logs in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         return jobService.getJobLogs(projectId, id);
     }
 
@@ -161,9 +197,17 @@ public class JobController {
     @Operation(summary = "Run the job", description = "Create a new pod with configuration to execute a spark-job")
     @PostMapping("{projectId}/job/{id}/run")
     public void run(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Running job '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Running job '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         jobService.run(projectId, id);
-        LOGGER.info("Job '{}' in project '{}' successfully started", id, projectId);
+        LOGGER.info(
+            "{} - Job '{}' in project '{}' successfully started",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
     }
 
     /**
@@ -175,8 +219,16 @@ public class JobController {
     @Operation(summary = "Stop the job", description = "Stop/delete the pod with a running spark-job")
     @PostMapping("{projectId}/job/{id}/stop")
     public void stop(@PathVariable String projectId, @PathVariable String id) {
-        LOGGER.info("Stopping job '{}' in project '{}'", id, projectId);
+        LOGGER.info(
+            "{} - Stopping job '{}' in project '{}'",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
         jobService.stop(projectId, id);
-        LOGGER.info("Job '{}' in project '{}' successfully stopped", id, projectId);
+        LOGGER.info(
+            "{} - Job '{}' in project '{}' successfully stopped",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()),
+            id,
+            projectId);
     }
 }

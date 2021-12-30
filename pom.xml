@@ -24,7 +24,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.5.3</version>
+        <version>2.5.7</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>by.iba</groupId>
@@ -37,6 +37,8 @@
         <java.version>11</java.version>
         <kubernetes.client.version>5.6.0</kubernetes.client.version>
         <bouncycastle.version>1.68</bouncycastle.version>
+        <log4j2.version>2.17.0</log4j2.version>
+        <logback.version>1.2.9</logback.version>
     </properties>
 
     <dependencies>
@@ -59,6 +61,8 @@
             <artifactId>bcpkix-jdk15on</artifactId>
             <version>${bouncycastle.version}</version>
         </dependency>
+
+
 
         <!-- Spring dependencies -->
 

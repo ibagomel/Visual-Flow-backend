@@ -24,7 +24,9 @@ import by.iba.vfapi.dto.pipelines.PipelineOverviewDto;
 import by.iba.vfapi.dto.pipelines.PipelineOverviewListDto;
 import by.iba.vfapi.dto.pipelines.PipelineRequestDto;
 import by.iba.vfapi.dto.pipelines.PipelineResponseDto;
+import by.iba.vfapi.model.auth.UserInfo;
 import by.iba.vfapi.services.PipelineService;
+import by.iba.vfapi.services.auth.AuthenticationService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -51,10 +53,18 @@ class PipelineControllerTest {
     @Mock
     private PipelineService pipelineService;
     private PipelineController pipelineController;
+    @Mock
+    private AuthenticationService authenticationService;
 
     @BeforeEach
     void setUp() {
-        pipelineController = new PipelineController(pipelineService);
+        pipelineController = new PipelineController(pipelineService, authenticationService);
+        UserInfo expected = new UserInfo();
+        expected.setName("name");
+        expected.setId("id");
+        expected.setUsername("username");
+        expected.setEmail("email");
+        when(authenticationService.getUserInfo()).thenReturn(expected);
     }
 
     @Test

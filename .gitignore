@@ -57,3 +57,5 @@ build/
 
 ### VS Code ###
 .vscode/
+
+/dependency-check/

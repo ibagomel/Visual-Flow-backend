@@ -64,6 +64,12 @@ class ProjectControllerTest {
     @BeforeEach
     void setUp() {
         controller = new ProjectController(projectService, authenticationService);
+        UserInfo expected = new UserInfo();
+        expected.setName("name");
+        expected.setId("id");
+        expected.setUsername("username");
+        expected.setEmail("email");
+        when(authenticationService.getUserInfo()).thenReturn(expected);
     }
 
     @Test

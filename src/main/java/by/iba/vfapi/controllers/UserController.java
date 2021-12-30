@@ -57,7 +57,9 @@ public class UserController {
         "current user")
     @GetMapping("/user")
     public UserInfo whoAmI() {
-        LOGGER.info("Receiving information about current user");
+        LOGGER.info(
+            "{} - Receiving information about current user",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()));
         return authenticationService.getUserInfo();
     }
 
@@ -71,7 +73,9 @@ public class UserController {
         @Schema(ref = OpenApiConfig.SCHEMA_USERS)))})
     @GetMapping("/users")
     public List<Map<String, String>> getUsers() {
-        LOGGER.info("Receiving users of application");
+        LOGGER.info(
+            "{} - Receiving users of application",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()));
         return userService.getUsers();
     }
 
@@ -85,7 +89,9 @@ public class UserController {
         @Schema(ref = OpenApiConfig.SCHEMA_ROLES)))})
     @GetMapping("/roles")
     public List<String> getRoles() {
-        LOGGER.info("Receiving roles of application");
+        LOGGER.info(
+            "{} - Receiving roles of application",
+            AuthenticationService.getFormattedUserInfo(authenticationService.getUserInfo()));
         return userService.getRoleNames();
     }
 }

@@ -23,7 +23,9 @@ import by.iba.vfapi.dto.jobs.JobOverviewDto;
 import by.iba.vfapi.dto.jobs.JobOverviewListDto;
 import by.iba.vfapi.dto.jobs.JobRequestDto;
 import by.iba.vfapi.dto.jobs.JobResponseDto;
+import by.iba.vfapi.model.auth.UserInfo;
 import by.iba.vfapi.services.JobService;
+import by.iba.vfapi.services.auth.AuthenticationService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -49,12 +51,20 @@ import static org.mockito.Mockito.when;
 class JobControllerTest {
     @Mock
     private JobService jobService;
+    @Mock
+    private AuthenticationService authenticationServiceMock;
 
     private JobController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new JobController(jobService);
+        controller = new JobController(jobService, authenticationServiceMock);
+        UserInfo expected = new UserInfo();
+        expected.setName("name");
+        expected.setId("id");
+        expected.setUsername("username");
+        expected.setEmail("email");
+        when(authenticationServiceMock.getUserInfo()).thenReturn(expected);
     }
 
     @Test

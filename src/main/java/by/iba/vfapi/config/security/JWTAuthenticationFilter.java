@@ -100,6 +100,10 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
                 kubernetesService.createIfNotExistServiceAccount(userInfo);
                 authenticationService.setUserInfo(userInfo);
 
+                LOGGER.info(
+                    "{} has been successfully authenticated in k8s",
+                    AuthenticationService.getFormattedUserInfo(userInfo));
+
                 filterChain.doFilter(httpServletRequest, httpServletResponse);
             }
         } catch (AuthenticationException e) {

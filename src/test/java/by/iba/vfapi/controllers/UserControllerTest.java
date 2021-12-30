@@ -33,6 +33,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -50,6 +51,12 @@ class UserControllerTest {
     @BeforeEach
     void setUp() {
         controller = new UserController(authenticationServiceMock, userServiceMock);
+        UserInfo expected = new UserInfo();
+        expected.setName("name");
+        expected.setId("id");
+        expected.setUsername("username");
+        expected.setEmail("email");
+        when(authenticationServiceMock.getUserInfo()).thenReturn(expected);
     }
 
     @Test
@@ -62,7 +69,7 @@ class UserControllerTest {
         when(authenticationServiceMock.getUserInfo()).thenReturn(expected);
         UserInfo actual = controller.whoAmI();
         assertEquals(expected, actual, "UserInfo must be equals to expected");
-        verify(authenticationServiceMock).getUserInfo();
+        verify(authenticationServiceMock, times(2)).getUserInfo();
     }
 
     @Test

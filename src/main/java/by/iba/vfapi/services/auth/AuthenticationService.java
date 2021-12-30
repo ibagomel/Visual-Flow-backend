@@ -55,4 +55,19 @@ public class AuthenticationService {
         Authentication authentication = new UsernamePasswordAuthenticationToken(userInfo, null);
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
+
+    /**
+     * Fetches the essential userinfo fields and formats them
+     *
+     * @param userInfo user information
+     * @return formatted string
+     */
+    public static String getFormattedUserInfo(UserInfo userInfo) {
+        return String.format(
+            "%s(%s)%s",
+            userInfo.getUsername(),
+            userInfo.getEmail(),
+            userInfo.isSuperuser() ? "[superuser]" : ""
+        );
+    }
 }

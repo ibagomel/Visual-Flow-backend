@@ -438,6 +438,13 @@ public class KubernetesService {
                                      .addToLabels(K8sUtils.APP, appNameLabel)
                                      .endMetadata()
                                      .build());
+            LOGGER.info("{} - created a new service account - {}",
+                        AuthenticationService.getFormattedUserInfo(userInfo),
+                        saName);
+        } else {
+            LOGGER.info("{} - found existing service account - {}",
+                        AuthenticationService.getFormattedUserInfo(userInfo),
+                        saName);
         }
     }
 
