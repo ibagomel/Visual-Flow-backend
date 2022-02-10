@@ -40,7 +40,8 @@ import lombok.Setter;
 @Schema(description = "DTO with pipeline's information, including it's definition and graph")
 public class PipelineRequestDto {
     @NotNull
-    @Pattern(regexp = Constants.NAME_PATTERN)
+    @Pattern(regexp = Constants.NAME_PATTERN, message = "The name should only consist of alphanumerics or ' " +
+        "\\-_' characters and have a total length between 3 and 40 characters max")
     @Schema(description = "Name of the pipeline", example = "test_pipe321")
     private String name;
     @NotNull
