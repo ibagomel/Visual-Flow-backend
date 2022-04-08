@@ -122,6 +122,7 @@ public class JobRequestDto {
                 "GROUP".equals(operation) ||
                 "FILTER".equals(operation) ||
                 "REMOVE_DUPLICATES".equals(operation) ||
+                "SORT".equals(operation) ||
                 "CACHE".equals(operation)) && targetsCount != 1) {
                 throw new BadRequestException(String.format("%s stage must have one input arrows", operation));
             } else if (!List.of("READ",
@@ -133,6 +134,7 @@ public class JobRequestDto {
                                 "GROUP",
                                 "FILTER",
                                 "REMOVE_DUPLICATES",
+                                "SORT",
                                 "CACHE").contains(operation)) {
                 throw new BadRequestException("Invalid stage type");
             }
